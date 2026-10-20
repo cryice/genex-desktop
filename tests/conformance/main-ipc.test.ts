@@ -19,6 +19,7 @@ import { type PlayIpcDeps, registerPlayIpc } from "../../src/main/ipc/play.ts";
 import { createLoginControllers, settleSignIn, type SubscriptionEngine } from "../../src/main/login-controllers.ts";
 import { AccountId, SubscriptionAccounts } from "../../src/substrate/engines/subscription-accounts.ts";
 import { EngineStatusCode } from "../../src/shared/engine-descriptor.ts";
+import type { CodexConnection } from "../../src/shared/codex-connection.ts";
 import { mkdtempSync, existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -806,7 +807,7 @@ it("model refresh validates provider identities before invoking discovery", asyn
     },
   });
   // Only the registrar's engine registry is needed; no profile or credentials are opened.
-  const core = { engines };
+  const core = { engines, setCodexConnection: async (mode: CodexConnection) => mode };
   const { handle, invoke } = registrar();
   registerModelsIpc(handle, { core, subscription: () => null, pushUiEvent: () => {}, openRouterLogin: noSignIn });
   for (const provider of [undefined, null, 7, {}, "../codex", "ollama", ""]) {
@@ -815,6 +816,33 @@ it("model refresh validates provider identities before invoking discovery", asyn
   }
   assert.deepEqual(await invoke("studio:models.refresh", { provider: "codex" }), { ok: true, value: true });
   assert.equal(calls, 1);
+});
+
+it("switching the Codex row's connection hands the mode to the core and normalizes anything else", async () => {
+  const seen: string[] = [];
+  const core = {
+    engines: { has: () => true, get: () => ({}) },
+    setCodexConnection: async (mode: CodexConnection) => {
+      seen.push(mode);
+      return mode;
+    },
+  } as unknown as ModelsIpcDeps["core"];
+  const { handle, invoke } = registrar();
+  registerModelsIpc(handle, { core, subscription: () => null, pushUiEvent: () => {}, openRouterLogin: noSignIn });
+  assert.deepEqual(await invoke("studio:codex.connection.set", { mode: "ccswitch" }), { ok: true, value: "ccswitch" });
+  // Anything that is not exactly the cc-switch mode falls back to the subscription, so a stale or
+  // hostile payload can never leave the row stranded on a connection the user did not pick.
+  for (const payload of [undefined, null, {}, { mode: "nonsense" }, { mode: 7 }, { mode: "subscription" }])
+    assert.deepEqual(await invoke("studio:codex.connection.set", payload), { ok: true, value: "subscription" });
+  assert.deepEqual(seen, [
+    "ccswitch",
+    "subscription",
+    "subscription",
+    "subscription",
+    "subscription",
+    "subscription",
+    "subscription",
+  ]);
 });
 
 it("storage is measured and freed for one game named as one, or for every game", async () => {
@@ -904,7 +932,7 @@ it("model refresh and recheck reach OpenCode and OpenRouter, which have no subsc
   const events: UiEvent[] = [];
   const { handle, invoke } = registrar();
   registerModelsIpc(handle, {
-    core: { engines },
+    core: { engines, setCodexConnection: async (mode) => mode },
     subscription: () => null,
     pushUiEvent: (event) => events.push(event),
     openRouterLogin: noSignIn,
@@ -941,7 +969,7 @@ it("the OpenRouter key is saved and forgotten through the engine, and only its s
     const events: UiEvent[] = [];
     const { handle, invoke } = registrar();
     registerModelsIpc(handle, {
-      core: { engines },
+      core: { engines, setCodexConnection: async (mode) => mode },
       subscription: () => null,
       pushUiEvent: (event) => events.push(event),
       openRouterLogin: noSignIn,
@@ -1006,7 +1034,7 @@ it("the browser sign-in hands its key to the engine, and only how it ended comes
     const { handle, invoke } = registrar();
     let login = returning("sk-or-v1-refused-refused-refused");
     registerModelsIpc(handle, {
-      core: { engines },
+      core: { engines, setCodexConnection: async (mode) => mode },
       subscription: () => null,
       pushUiEvent: (event) => events.push(event),
       openRouterLogin: {

@@ -35,6 +35,7 @@ import { coverLookName, coverRecipeFromTool } from "../shared/cover-recipe.ts";
 import { CustomEvent, customEventData } from "../shared/custom-events.ts";
 import { MINUTE_MS, SECOND_MS } from "../shared/duration.ts";
 import { EngineStatusCode } from "../shared/engine-descriptor.ts";
+import { CodexConnection } from "../shared/codex-connection.ts";
 import { errorMessage } from "../shared/errors.ts";
 import { EventKind, ThreadKind, SnapshotScope } from "../shared/event-log.ts";
 import { assetKind, isAudioFile, type AssetDeliveredPayload } from "../shared/game-assets.ts";
@@ -86,6 +87,7 @@ import { ContextPreferences } from "../substrate/context-settings.ts";
 import { BonsaiEngine } from "../substrate/engines/bonsai.ts";
 import { ClaudeCodeEngine } from "../substrate/engines/claude-code.ts";
 import { CodexEngine } from "../substrate/engines/codex.ts";
+import { type CcswitchConnectionSettings, ccswitchConnectionSettings } from "../substrate/engines/codex-ccswitch.ts";
 import { OllamaEngine, OllamaSidecar } from "../substrate/engines/ollama.ts";
 import { OpenCodeEngine } from "../substrate/engines/opencode.ts";
 import { LOCK_RECOVERY_DIR } from "../substrate/engines/ownership-locks.ts";
@@ -251,6 +253,7 @@ const MESSAGE = {
   notOurRoot: (root: string, project: string) =>
     `refused: ${root} is not a studio worktree or the folder of "${project}"`,
   linkedPath: (target: string) => `refused: the worktree path runs through a symlink: ${target}`,
+  codexUnavailable: "Codex is unavailable",
 } as const;
 
 /** The one lock every cover render takes: the GPU renderer draws one cover at a time. */
@@ -523,6 +526,11 @@ export class StudioCore {
   };
   #assetCheckpointStore?: AssetCheckpoints;
   #planReviews?: PlanReviewController;
+  /**
+   * How the Codex row connects, saved across launches beside the engine's own home: the ChatGPT
+   * subscription, or a provider cc-switch manages. A preference, never a credential.
+   */
+  readonly #codexConnection: CcswitchConnectionSettings;
 
   // One at a time, keyed by what they touch: a game's thread, a game's shown build, the cover renderer.
   readonly #gameThreadOperations = new Map<string, Promise<unknown>>();
@@ -548,6 +556,9 @@ export class StudioCore {
     this.#consent = new PluginConsent({ timeoutMs: options.consentTimeoutMs ?? CONSENT_TIMEOUT_MS });
     this.locks = this.#createLocks();
     this.layout = layoutFor(options.paths.userData);
+    this.#codexConnection = ccswitchConnectionSettings(
+      path.join(this.layout.engineHomes, EngineId.Codex, "ccswitch.json"),
+    );
     this.appLook = options.appLook ?? unsupportedAppLook();
     this.screenAccess = options.screenAccess ?? null;
     if (options.gamesRoot) this.layout.gamesRoot = options.gamesRoot;
@@ -800,7 +811,7 @@ export class StudioCore {
     mark("jobs");
     await this.#wireMcp();
     this.builds = this.#createBuilds();
-    this.#registerEngines();
+    await this.#registerEngines();
     this.host = this.#createHarnessHost();
     mark("engines");
   }
@@ -1267,8 +1278,8 @@ export class StudioCore {
   }
 
   /** The engines the options name, or the app's own four. */
-  #registerEngines(): void {
-    const engines = this.options.engines ?? this.#defaultEngines();
+  async #registerEngines(): Promise<void> {
+    const engines = this.options.engines ?? (await this.#defaultEngines());
     for (const engine of engines) this.engines.register(engine);
     // Local first: it is the one engine that cannot be rate limited, which is what makes it
     // the fallback when a subscription throttles mid-run. The metered engines come last, and
@@ -1283,7 +1294,10 @@ export class StudioCore {
     ]);
   }
 
-  #defaultEngines(): Engine[] {
+  async #defaultEngines(): Promise<Engine[]> {
+    // The Codex row's connection is the person's saved choice: cc-switch's when they chose it, the
+    // subscription otherwise. cc-switch itself writes `~/.codex`; the engine reads it at launch.
+    const codexConnection = await this.#codexConnection.read();
     return [
       new BonsaiEngine({
         scratchRoot: path.join(this.layout.scratch, EngineId.Bonsai),
@@ -1323,6 +1337,7 @@ export class StudioCore {
         onModelsChanged: () => this.emit(UiEvent.EnginesChanged, { engine: EngineId.Codex }),
         engineHome: path.join(this.layout.engineHomes, EngineId.Codex),
         protectedPaths: this.#protectedPaths(),
+        connection: codexConnection,
         ...(this.options.codexExecutable ? { executable: this.options.codexExecutable } : {}),
       }),
       // Metered: OpenCode on whatever the person signed it in to, OpenRouter on the key pasted in
@@ -1794,6 +1809,23 @@ export class StudioCore {
   /** Learning and self-improving both on: a staged improvement applies itself. */
   #autoApplies(): boolean {
     return this.#settings.learning && this.#settings.selfImproving;
+  }
+
+  /**
+   * Switch the Codex row's connection (Settings' switcher): the ChatGPT subscription, or a provider
+   * cc-switch manages. The choice is saved for the next launch, the engine follows it now — its
+   * status, model list and billing all read the connection they are on — and the UI re-reads the
+   * row. Nothing is migrated: a cc-switch session runs on its relay from its first turn, and the
+   * subscription keeps its own login for the switch back.
+   */
+  async setCodexConnection(mode: CodexConnection): Promise<CodexConnection> {
+    const engine = this.engines.has(EngineId.Codex) ? this.engines.get(EngineId.Codex) : null;
+    if (!(engine instanceof CodexEngine)) throw new Error(MESSAGE.codexUnavailable);
+    // Written first: a failed save leaves the engine on the connection it was already on.
+    await this.#codexConnection.write(mode);
+    engine.setConnection(mode);
+    this.emit(UiEvent.EnginesChanged, { engine: EngineId.Codex });
+    return mode;
   }
 
   #settingsFile(): string {

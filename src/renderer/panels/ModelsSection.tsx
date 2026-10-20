@@ -3,12 +3,14 @@
  * (`MeteredProviders.tsx`) and the person's own model server (`LocalServerRow.tsx`): name and CLI version, one status plate, one line of context, and at most
  * one visible action. Account changes, a recheck (which also refreshes
  * the model list) and updating the CLI live in the row's Account menu; the model list speaks up
- * only while it loads or after a refresh failed (`catalog-note.ts`).
+ * only while it loads or after a refresh failed (`catalog-note.ts`). The Codex row also switches
+ * its connection — the ChatGPT subscription, or a provider cc-switch manages (`codex-connection.ts`).
  */
 import type { JSX } from "react";
 import { useEffect, useState } from "react";
 import { type ClaudeLoginState, isClaudeLoginActive } from "../../shared/claude-login.ts";
 import { CodingCliState } from "../../shared/coding-cli.ts";
+import { CodexConnection } from "../../shared/codex-connection.ts";
 import { EngineStatusCode } from "../../shared/engine-descriptor.ts";
 import { EngineId } from "../../shared/providers.ts";
 import { SUBSCRIPTION_ENGINES, useClaudeLogin, useSubscriptionAuth } from "../subscription-auth.ts";
@@ -24,13 +26,21 @@ import {
 import { Icon } from "../ui/icons.tsx";
 import { useCodeFallback } from "../ui/SignInCard.tsx";
 import { ViewSwitcher } from "../ui/view-switcher.tsx";
-import { PROVIDER_ACCOUNT_WORDS, problemWords } from "../words.ts";
+import { CCSWITCH_WORDS, PROVIDER_ACCOUNT_WORDS, problemWords } from "../words.ts";
 import { NEW_ACCOUNT, type SubscriptionAccountView } from "../../shared/subscription-accounts.ts";
 import { accountLabel, activeAccount, switchAccount, useSubscriptionAccounts } from "../subscription-accounts.ts";
 import { useCliInstall } from "../cli-install.ts";
 import { SHOW_TERMINAL_EVENT } from "./terminal-events.ts";
 import { PickerModels } from "./PickerModels.tsx";
 import { CatalogNoteKind, catalogNote } from "./catalog-note.ts";
+import {
+  CcswitchRowState,
+  ccswitchConnectedLine,
+  ccswitchRowState,
+  ccswitchTroubleLine,
+  CONNECTION_ITEMS,
+  connectionOf,
+} from "./codex-connection.ts";
 import { type ProviderWords, RowHeading, RowTone, type RowView } from "./provider-row.tsx";
 import { MeteredProviderRows } from "./MeteredProviders.tsx";
 import { LocalServerRow } from "./LocalServerRow.tsx";
@@ -65,6 +75,8 @@ interface RowActions {
   /** Sign Studio out of one of its own accounts (Studio's first when unnamed). */
   signOut: (account?: string) => Promise<void>;
   signIn: (options?: { separate?: boolean; account?: string }) => Promise<void>;
+  /** Switch the Codex row's connection (its switcher): the subscription, or cc-switch's provider. */
+  connectVia: (mode: CodexConnection) => Promise<void>;
 }
 
 /** The row's in-app install of its CLI (`useCliInstall`). */
@@ -259,6 +271,35 @@ function signInLine(words: ProviderWords, engine: EngineDescriptor): string {
   return `Use your ${words.plans} plan.`;
 }
 
+/**
+ * The Codex row on a cc-switch connection: the provider cc-switch selected when there is one, and
+ * otherwise why there is nothing to run — in the engine's own words, with the remedy beside them.
+ * There is no sign-in to offer: the connection is a choice of provider, made in cc-switch.
+ */
+function ccswitchView(engine: EngineDescriptor, act: RowActions): RowView {
+  const state = ccswitchRowState(engine.status);
+  if (state === CcswitchRowState.Connected)
+    return {
+      tone: RowTone.Connected,
+      status: CCSWITCH_WORDS.connected,
+      line: ccswitchConnectedLine(engine.account?.ccswitch),
+      actions: <Button onClick={() => void act.recheck()}>{CCSWITCH_WORDS.checkAgain}</Button>,
+    };
+  if (state === CcswitchRowState.NotConnected)
+    return {
+      tone: RowTone.Off,
+      status: CCSWITCH_WORDS.notConnected,
+      line: ccswitchTroubleLine(engine.status),
+      actions: <Button onClick={() => void act.recheck()}>{CCSWITCH_WORDS.checkAgain}</Button>,
+    };
+  return {
+    tone: RowTone.Danger,
+    status: CCSWITCH_WORDS.couldNotCheck,
+    line: ccswitchTroubleLine(engine.status),
+    actions: <Button onClick={() => void act.recheck()}>{CCSWITCH_WORDS.tryAgain}</Button>,
+  };
+}
+
 /** The row for a provider's state: missing, signing in, connected, needing sign-in, or unreachable. */
 function rowView(row: {
   engineId: string;
@@ -272,7 +313,15 @@ function rowView(row: {
   accounts: readonly SubscriptionAccountView[];
 }): RowView {
   const { engineId, engine, words, act } = row;
-  if (row.cliMissing) return missingView(words, engine.account?.cli, act, row.install);
+  // A cc-switch connection installs the same CLI to reach its provider, not a ChatGPT plan.
+  const onSwitch = connectionOf(engine.account) === CodexConnection.Ccswitch;
+  if (row.cliMissing)
+    return missingView(
+      onSwitch ? { ...words, plans: CCSWITCH_WORDS.ccswitch } : words,
+      engine.account?.cli,
+      act,
+      row.install,
+    );
   if (row.signingIn) return signingInView(engineId, act);
   if (engine.status.code === EngineStatusCode.Ready && row.install.installing)
     return {
@@ -281,6 +330,8 @@ function rowView(row: {
       line: `Updating ${words.name}. This can take a minute.`,
       actions: null,
     };
+  // A cc-switch connection has no sign-in to show: its own faces say what the provider stands on.
+  if (onSwitch) return ccswitchView(engine, act);
   if (engine.status.code === EngineStatusCode.Ready)
     return {
       tone: RowTone.Connected,
@@ -384,6 +435,13 @@ function useRowActions(
         await refresh();
       }),
     signIn,
+    // The switch is saved for the next launch; the engines event that follows re-reads the row,
+    // its status and its models on the connection now in use.
+    connectVia: (mode) =>
+      run(async () => {
+        await window.studio.setCodexConnection(mode);
+        await refresh();
+      }),
   };
 }
 
@@ -491,6 +549,29 @@ function AccountTabs({
   );
 }
 
+/**
+ * The Codex row's connection switcher: the ChatGPT subscription, or a provider cc-switch manages.
+ * The half in use is the engine's own; picking the other saves the choice for the next launch and
+ * re-reads the row, its status and its models on the connection now in use.
+ */
+function ConnectionSwitcher({ engine, act }: { engine: EngineDescriptor; act: RowActions }): JSX.Element {
+  const active = connectionOf(engine.account);
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-2" data-connection-switcher={EngineId.Codex}>
+      <ViewSwitcher
+        items={CONNECTION_ITEMS}
+        active={active}
+        sans
+        label={CCSWITCH_WORDS.switcher}
+        dataAttribute="data-connection"
+        onSelect={(mode) => {
+          if (mode !== active) void act.connectVia(mode);
+        }}
+      />
+    </div>
+  );
+}
+
 function ProviderRow({
   engineId,
   engines,
@@ -527,10 +608,14 @@ function ProviderRow({
   const signInTrouble = !cliMissing && !signingIn && engine.status.code === EngineStatusCode.NeedsLogin;
   const problem = act.actionError ?? install.problem ?? (signInTrouble ? loginError : null);
   // Accounts to switch between, once there is one: never while signing in, nor for a login the environment sets.
-  const showAccounts = !cliMissing && !signingIn && engine.account?.source !== "env" && accounts.length > 0;
+  // A cc-switch connection has none: the provider cc-switch selected is the whole account.
+  const onSwitch = connectionOf(engine.account) === CodexConnection.Ccswitch;
+  const showAccounts =
+    !cliMissing && !signingIn && !onSwitch && engine.account?.source !== "env" && accounts.length > 0;
   return (
     <section aria-label={words.name} className="settings-card gap-2">
       <RowHeading words={words} version={engine.account?.cli.version} tone={tone} status={status} view={view} />
+      {engineId === EngineId.Codex && <ConnectionSwitcher engine={engine} act={act} />}
       {showAccounts && <AccountTabs engineId={engineId} words={words} accounts={accounts} act={act} />}
       {signingIn && (
         <SignInStrip

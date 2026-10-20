@@ -1749,6 +1749,37 @@ describe("engine registry & fallback policy", () => {
     assert.equal(registry.get("openrouter").id, "openrouter");
   });
 
+  it("never moves work onto a connection that bills per token right now, even when its provider table does not say so", async () => {
+    const registry = new EngineRegistry();
+    // Codex on cc-switch: the provider table still says subscription, the connection says metered.
+    registry.register({ ...engine("codex", "delegated", "ready"), metered: async () => true });
+    registry.register(engine("ollama", "direct", "ready"));
+    registry.setPreferredOrder(["codex", "ollama"]);
+    assert.deepEqual(await registry.fallbackFor("ollama", { kind: "unavailable" }), []);
+    assert.equal((await registry.firstReady())?.id, "ollama");
+    // The person's own pick still reaches it: the registry holds it like any other engine.
+    assert.equal(registry.get("codex").id, "codex");
+    // And the descriptor says it, so the picker's own choices know.
+    const described = await registry.describe();
+    assert.equal(described.find((d) => d.id === "codex")?.metered, true);
+    assert.equal(described.find((d) => d.id === "ollama")?.metered, false);
+  });
+
+  it("the same engine on its subscription is eligible again: the connection decides", async () => {
+    let metered = true;
+    const registry = new EngineRegistry();
+    registry.register({ ...engine("codex", "delegated", "ready"), metered: async () => metered });
+    registry.register(engine("ollama", "direct", "ready"));
+    registry.setPreferredOrder(["codex", "ollama"]);
+    assert.deepEqual(await registry.fallbackFor("ollama", { kind: "unavailable" }), []);
+    metered = false;
+    assert.deepEqual(
+      await registry.fallbackFor("ollama", { kind: "unavailable" }),
+      ["codex"],
+      "switching back to the subscription makes the studio's own choices eligible again",
+    );
+  });
+
   it("describes engines for the picker, including unavailable ones", async () => {
     const registry = new EngineRegistry();
     registry.register(engine("ollama", "direct", "ready"));

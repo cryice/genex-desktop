@@ -46,6 +46,10 @@ const NATIVE_CHANNELS = [
   "studio:local-server.find",
   "studio:codex-login.browser",
   "studio:codex-login.retry",
+  // Switching the Codex row's connection changes what every run from now on connects to, and
+  // writes the choice to this Mac's engine home: the same weight as choosing a subscription's
+  // account. A fixture profile keeps the connection it booted with.
+  "studio:codex.connection.set",
   "studio:claude-login.browser",
   "studio:open-url",
   // A macOS notification lands in the developer's Notification Center, outside the fixture.

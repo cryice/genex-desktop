@@ -5,6 +5,7 @@ import type { ModelCatalogStatus } from "./model-catalog.ts";
  * `substrate/engines/types.ts` re-exports the status and account types for engine code.
  */
 import type { CodingCliStatus } from "./coding-cli.ts";
+import type { CodexConnection } from "./codex-connection.ts";
 import type { LocalServerInfo } from "./local-server.ts";
 import type { ProviderInfo } from "./providers.ts";
 import type { ProviderUsage } from "./provider-usage.ts";
@@ -42,6 +43,27 @@ export interface EngineAccount {
   /** What signing out of Studio's own login leaves: the Terminal login, or no connection. */
   afterSignOut: "terminal" | "signed-out";
   cli: { state: CodingCliStatus["state"]; version?: string; path?: string };
+  /**
+   * How this engine connects, when it has more than one way to: Codex runs on the ChatGPT
+   * subscription or on a provider cc-switch manages (`shared/codex-connection.ts`). Absent for an
+   * engine with one connection only.
+   */
+  connection?: CodexConnection;
+  /**
+   * A cc-switch connection's selected provider, as Settings shows it. The provider's key never
+   * travels this far — it rides the child process's own environment and stops there.
+   */
+  ccswitch?: CcswitchInfo;
+}
+
+/** What Settings shows for a cc-switch connection's selected provider: never its key. */
+export interface CcswitchInfo {
+  /** The provider's display name, or its table key when the file gave none. */
+  providerName: string;
+  /** The relay's host, for the status line. */
+  host: string;
+  /** The model the cc-switch file left selected, when it left one: the discovery fallback. */
+  model: string | null;
 }
 
 export interface EngineDescriptor {
@@ -55,6 +77,12 @@ export interface EngineDescriptor {
   usage?: ProviderUsage | null;
   catalog?: ModelCatalogStatus;
   account?: EngineAccount | null;
+  /**
+   * Does this engine bill per token right now? True for a metered API (OpenRouter) and for a
+   * connection that runs on a provider's key (Codex on cc-switch's selected provider). The
+   * studio's own choices — a fallback, a first ready engine — never spend on it.
+   */
+  metered?: boolean;
   /** The provider table's row for this engine (`shared/providers.ts`); null for an unlisted engine. */
   provider?: ProviderInfo | null;
   /** A local server engine: the saved server's address and software (never its key); null while none is saved. */

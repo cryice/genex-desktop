@@ -238,7 +238,7 @@ export async function identifyServer(
 // ── each model's context, vision and tool calling ─────────────────────────────────────────────
 
 /** What is known of one model beyond its id; a fact nobody reported stays undefined. */
-interface ModelFacts {
+export interface ModelFacts {
   label?: string;
   context?: { tokens: number; source: ModelContextSource };
   vision?: boolean;
@@ -372,8 +372,12 @@ function merged(first: ModelFacts, later: ModelFacts | undefined): ModelFacts {
   return { ...first, ...Object.fromEntries(known) };
 }
 
-/** A model as a picker row: unknown context planned for, tool calling taken as given unless refused. */
-function modelRow(id: string, facts: ModelFacts): EngineModel {
+/**
+ * One model as a picker row: unknown context planned for, tool calling taken as given unless
+ * refused. Exported for the one row a configuration names without a server answering (a
+ * cc-switch provider's selected model, when discovery found nothing).
+ */
+export function modelRow(id: string, facts: ModelFacts = {}): EngineModel {
   const context = facts.context ?? { tokens: UNKNOWN_CONTEXT_TOKENS, source: ModelContextSource.Unknown };
   return {
     id,

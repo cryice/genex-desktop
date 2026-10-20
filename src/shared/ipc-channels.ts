@@ -24,6 +24,7 @@ import type { PlayCoverType, PlayGameChange } from "./play-manage.ts";
 import type { AvatarStyle, FriendActionRequest, PresenceVisibility } from "./play-people.ts";
 import type { StatsPeriod } from "./play-stats.ts";
 import type { MentionRef, MentionRetry } from "./prompt-mention.ts";
+import type { CodexConnection } from "./codex-connection.ts";
 
 type Arg<M extends keyof StudioApi, I extends number> = Parameters<StudioApi[M]>[I];
 
@@ -133,6 +134,7 @@ export const STUDIO_INVOKE_CHANNELS = {
   "studio:mcp.forget-always": "mcpForgetAlwaysAllowed",
   "studio:engines.recheck": "recheckEngines",
   "studio:models.refresh": "refreshModels",
+  "studio:codex.connection.set": "setCodexConnection",
   "studio:cli.update": "cliUpdate",
   "studio:subscription.signin": "subscriptionSignIn",
   "studio:subscription.forget-studio-login": "subscriptionForgetStudioLogin",
@@ -382,6 +384,7 @@ export interface StudioInvokePayloads {
   "studio:mcp.forget-always": { id: string };
   "studio:engines.recheck": { engine?: string };
   "studio:models.refresh": { provider: string };
+  "studio:codex.connection.set": { mode: CodexConnection };
   "studio:cli.update": { provider: string };
   "studio:subscription.signin": NonNullable<Arg<"subscriptionSignIn", 0>>;
   "studio:subscription.forget-studio-login": { engine?: string; account?: string };

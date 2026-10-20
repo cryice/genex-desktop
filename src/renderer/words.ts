@@ -2311,6 +2311,25 @@ export const LOCAL_SERVER_WORDS = {
   } satisfies Record<LocalServerProblem, string>,
 } as const;
 
+/** Settings → Model Providers: the Codex row's connection (`panels/codex-connection.ts`). */
+export const CCSWITCH_WORDS = {
+  /** The switcher's two halves (`shared/codex-connection.ts`). */
+  subscription: "ChatGPT",
+  ccswitch: "cc-switch",
+  switcher: "Codex connection",
+  subscriptionHint: "Your ChatGPT plan, signed in through the Codex CLI",
+  ccswitchHint: "A provider you manage in cc-switch, billed by that provider",
+  connected: "Connected",
+  notConnected: "Not connected",
+  couldNotCheck: "Couldn't check",
+  checkAgain: "Check again",
+  tryAgain: "Try again",
+  /** "My relay · api.kytok.xyz", the selected provider as the row's line shows it. */
+  providerAt: (name: string, host: string) => `${name} · ${host}`,
+  /** What a connected provider's line ends with: this connection spends, per token. */
+  billedByProvider: "billed by this provider",
+} as const;
+
 /** Settings → Model Providers: which models the picker lists (`panels/PickerModels.tsx`). */
 export const PICKER_MODELS_WORDS = {
   title: "Show in the model picker",

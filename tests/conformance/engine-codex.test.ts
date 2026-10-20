@@ -37,6 +37,7 @@ import { StudioBridge } from "../../src/substrate/engines/studio-bridge.ts";
 import { type DelegatePermissions, EngineError, type WorkerSeat } from "../../src/substrate/engines/types.ts";
 import { NeverTouchKind } from "../../src/substrate/engines/never-touch.ts";
 import { planModeNote } from "../../src/substrate/engines/codex-prompts.ts";
+import { CodexConnection } from "../../src/shared/codex-connection.ts";
 import { PermissionMode } from "../../src/shared/permissions.ts";
 import { spawn } from "node:child_process";
 import { tmpDir } from "../helpers/tmp.ts";
@@ -1786,5 +1787,283 @@ describe("Compact now on codex", () => {
       ["initialize", "initialized", "thread/resume"],
       "nothing is compacted once the thread failed to open",
     );
+  });
+});
+
+/**
+ * The cc-switch connection: the engine runs on the provider cc-switch left selected in its own
+ * `~/.codex/config.toml`, never on the studio's ChatGPT login. The CLI is injected here too —
+ * what is asserted is our half: that the provider rides the argv as overrides, its key rides
+ * the child's own environment and nowhere else, the status reads cc-switch's file afresh, and
+ * nothing about a relay's refusal is remembered as a dead sign-in.
+ */
+describe("codex on a cc-switch connection", () => {
+  /** The config cc-switch leaves: one provider selected, the key in auth.json. */
+  const CONFIG = `model_provider = "custom"
+model = "gpt-6-astra"
+
+[model_providers.custom]
+name = "My Codex"
+base_url = "https://api.kytok.xyz/v1"
+wire_api = "responses"
+requires_openai_auth = true
+`;
+  const KEY = "sk-upx2ndvhqlo2QFBmNNW3P03QkUPNC285lgPMHQ1vlUsOlSQW";
+
+  /** An engine on the cc-switch connection, over the config at `ccswitchHome` (null = no file). */
+  async function ccswitchEngine(
+    execFn: CodexExec,
+    config: string | null = CONFIG,
+    options: { onModelsChanged?: () => void } = {},
+  ): Promise<{ engine: CodexEngine; engineHome: string; ccswitchHome: string; root: string }> {
+    const root = await tmpDir("studio-codex-ccswitch-");
+    const engineHome = path.join(root, "engine-home");
+    const ccswitchHome = path.join(root, "dot-codex");
+    await mkdir(engineHome, { recursive: true });
+    await mkdir(ccswitchHome, { recursive: true });
+    if (config !== null) await writeFile(path.join(ccswitchHome, "config.toml"), config, "utf8");
+    await writeFile(path.join(ccswitchHome, "auth.json"), JSON.stringify({ OPENAI_API_KEY: KEY }), "utf8");
+    const engine = new CodexEngine({
+      resolveCli: fixtureCodingCli,
+      engineHome,
+      systemHome: path.join(root, "no-system-login"),
+      executable: "/fake/codex",
+      connection: CodexConnection.Ccswitch,
+      ccswitchHome,
+      execFn,
+      ...(options.onModelsChanged ? { onModelsChanged: options.onModelsChanged } : {}),
+    });
+    return { engine, engineHome, ccswitchHome, root };
+  }
+
+  describe("status", () => {
+    it("a provider with a key is Ready, named with its host", async () => {
+      const { engine } = await ccswitchEngine(fakeExec(successRun).fn);
+      const status = await engine.status();
+      assert.equal(status.code, "ready");
+      assert.equal(status.detail, "My Codex · api.kytok.xyz");
+    });
+
+    it("no config file at all is a nudge to pick a provider, with its remedy", async () => {
+      const { engine } = await ccswitchEngine(fakeExec(successRun).fn, null);
+      const status = await engine.status();
+      assert.equal(status.code, "not_running");
+      assert.match(status.detail, /no Codex provider selected/i);
+      assert.match(status.remedy!, /Manage your Codex providers in cc-switch/);
+    });
+
+    it("a config that selects no provider is a nudge, not an error", async () => {
+      const { engine } = await ccswitchEngine(
+        fakeExec(successRun).fn,
+        'model = "gpt-6-astra"\n\n[mcp_servers.blender]\ncommand = "nvx"\n',
+      );
+      const status = await engine.status();
+      assert.equal(status.code, "not_running");
+      assert.match(status.detail, /selects no provider/i);
+    });
+
+    it("a config it cannot read is an error", async () => {
+      const { engine } = await ccswitchEngine(fakeExec(successRun).fn, "model_provider = \nbroken [[[");
+      const status = await engine.status();
+      assert.equal(status.code, "error");
+      assert.match(status.detail, /could not be read/i);
+    });
+
+    it("a provider without a key anywhere is a nudge to paste one", async () => {
+      const root = await tmpDir("studio-codex-ccswitch-key-");
+      const engineHome = path.join(root, "engine-home");
+      const ccswitchHome = path.join(root, "dot-codex");
+      await mkdir(engineHome, { recursive: true });
+      await mkdir(ccswitchHome, { recursive: true });
+      await writeFile(path.join(ccswitchHome, "config.toml"), CONFIG, "utf8");
+      const engine = new CodexEngine({
+        resolveCli: fixtureCodingCli,
+        engineHome,
+        systemHome: path.join(root, "no-system-login"),
+        executable: "/fake/codex",
+        connection: CodexConnection.Ccswitch,
+        ccswitchHome,
+        execFn: fakeExec(successRun).fn,
+      });
+      const status = await engine.status();
+      assert.equal(status.code, "not_running");
+      assert.match(status.detail, /no API key/i);
+    });
+  });
+
+  describe("a turn on the selected provider", () => {
+    it("injects the provider as CLI overrides and its key only in the child's environment", async () => {
+      const { fn, seen } = fakeExec(successRun);
+      const { engine, engineHome, root } = await ccswitchEngine(fn);
+      const result = await engine.delegate({ prompt: "build", cwd: root });
+      assert.equal(result.ok, true);
+      const call = seen[0]!;
+      // The provider rides the argv, beside the isolation flags.
+      assert.ok(call.argv.includes("-c"));
+      assert.ok(call.argv.includes("model_provider=custom"));
+      assert.ok(call.argv.includes("model_providers.custom.base_url=https://api.kytok.xyz/v1"));
+      assert.ok(call.argv.includes("model_providers.custom.wire_api=responses"));
+      assert.ok(call.argv.includes("model_providers.custom.env_key=GENEX_CODEX_PROVIDER_KEY"));
+      assert.ok(call.argv.includes("model_providers.custom.requires_openai_auth=false"));
+      assert.ok(call.argv.includes("--ignore-user-config"));
+      // The key rides the child's own environment, and the argv never names it.
+      assert.equal(call.env.GENEX_CODEX_PROVIDER_KEY, KEY);
+      assert.ok(!call.argv.some((arg) => arg.includes(KEY)));
+      // The session runs under an isolated, empty home of the engine's own.
+      assert.equal(call.env.CODEX_HOME, path.join(engineHome, "ccswitch-home"));
+      // A cc-switch turn is a metered bill, not the subscription.
+      assert.equal(result.billing, "api");
+    });
+
+    it("strips a trailing slash the config left on the base URL", async () => {
+      const { fn, seen } = fakeExec(successRun);
+      const { engine, root } = await ccswitchEngine(
+        fn,
+        CONFIG.replace("https://api.kytok.xyz/v1", "https://api.kytok.xyz/v1/"),
+      );
+      await engine.delegate({ prompt: "build", cwd: root });
+      assert.ok(seen[0]!.argv.includes("model_providers.custom.base_url=https://api.kytok.xyz/v1"));
+    });
+
+    it("a launch with nothing selected fails with the reason and the remedy", async () => {
+      const { engine, root } = await ccswitchEngine(fakeExec(successRun).fn, null);
+      await assert.rejects(
+        () => engine.delegate({ prompt: "build", cwd: root }),
+        (err: EngineError) => {
+          assert.equal(err.kind, "unavailable");
+          assert.match(err.message, /no Codex provider selected yet/);
+          assert.match(err.message, /Manage your Codex providers in cc-switch/);
+          return true;
+        },
+      );
+    });
+
+    it("a relay refusing the key is not remembered as a dead sign-in", async () => {
+      const { fn } = fakeExec([], { throwOn: new Error("401 Unauthorized: invalid api key") });
+      const { engine, root } = await ccswitchEngine(fn);
+      await assert.rejects(() => engine.delegate({ prompt: "build", cwd: root }), /401/);
+      // The next status reads cc-switch's file afresh and stays Ready: the connection is fine,
+      // the key is cc-switch's business — a "Connect your ChatGPT" remedy would point the wrong way.
+      const status = await engine.status();
+      assert.equal(status.code, "ready");
+      assert.equal(status.detail, "My Codex · api.kytok.xyz");
+    });
+  });
+
+  describe("models", () => {
+    /** Run `fn` with `fetch` answering `answer`; the calls it saw are handed back. */
+    async function withFetch(answer: () => Response | Promise<Response>, fn: () => Promise<void>) {
+      const original = globalThis.fetch;
+      const seen: Array<{ url: string; authorization: string | null }> = [];
+      globalThis.fetch = async (input, init) => {
+        seen.push({ url: String(input), authorization: new Headers(init?.headers).get("authorization") });
+        return answer();
+      };
+      try {
+        await fn();
+      } finally {
+        globalThis.fetch = original;
+      }
+      return seen;
+    }
+
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+
+    it("offers the relay's own models, asked with the key, and no Codex default row", async () => {
+      const { engine } = await ccswitchEngine(fakeExec(successRun).fn);
+      const seen = await withFetch(
+        () => json({ data: [{ id: "gpt-6-astra" }, { id: "gpt-5.6-sol" }] }),
+        async () => {
+          await engine.refreshModels(true);
+          const rows = await engine.models();
+          assert.deepEqual(
+            rows.map((row) => row.id),
+            ["gpt-6-astra", "gpt-5.6-sol"],
+          );
+        },
+      );
+      assert.ok(seen.some((call) => call.url === "https://api.kytok.xyz/v1/models"));
+      assert.equal(seen.find((call) => call.url.endsWith("/models"))?.authorization, `Bearer ${KEY}`);
+    });
+
+    it("an empty list keeps the config's model as the one row", async () => {
+      const { engine } = await ccswitchEngine(fakeExec(successRun).fn);
+      await withFetch(
+        () => json({ data: [] }),
+        async () => {
+          await engine.refreshModels(true);
+          assert.deepEqual(
+            (await engine.models()).map((row) => row.id),
+            ["gpt-6-astra"],
+          );
+        },
+      );
+    });
+
+    it("nothing selected leaves no rows, not a throw", async () => {
+      const { engine } = await ccswitchEngine(fakeExec(successRun).fn, null);
+      assert.deepEqual(await engine.models(), []);
+    });
+  });
+
+  describe("the connection itself", () => {
+    it("is metered: the registry's own choices must never spend on it", async () => {
+      const { engine } = await ccswitchEngine(fakeExec(successRun).fn);
+      assert.equal(await engine.metered(), true);
+    });
+
+    it("switching to it drops the subscription's catalogue and says the models changed", async () => {
+      let changed = 0;
+      const { fn, seen } = fakeExec(successRun);
+      const root = await tmpDir("studio-codex-ccswitch-switch-");
+      const engineHome = path.join(root, "engine-home");
+      const ccswitchHome = path.join(root, "dot-codex");
+      await mkdir(engineHome, { recursive: true });
+      await mkdir(ccswitchHome, { recursive: true });
+      await writeFile(path.join(ccswitchHome, "config.toml"), CONFIG, "utf8");
+      await writeFile(path.join(ccswitchHome, "auth.json"), JSON.stringify({ OPENAI_API_KEY: KEY }), "utf8");
+      const engine = new CodexEngine({
+        resolveCli: fixtureCodingCli,
+        engineHome,
+        systemHome: path.join(root, "no-system-login"),
+        executable: "/fake/codex",
+        execFn: fn,
+        authStatusFn: async () => ({ loggedIn: true, method: "chatgpt", detail: "Logged in using ChatGPT" }),
+        ccswitchHome,
+        onModelsChanged: () => {
+          changed += 1;
+        },
+      });
+      assert.equal(engine.connection(), "subscription");
+      assert.equal(await engine.metered(), false, "the subscription is the studio's own bill");
+      engine.setConnection(CodexConnection.Ccswitch);
+      assert.equal(engine.connection(), "ccswitch");
+      assert.equal(changed, 1, "Settings is told the model list is now the relay's");
+      const status = await engine.status();
+      assert.equal(status.code, "ready", "the switched-to connection's status is read afresh");
+      await engine.delegate({ prompt: "build", cwd: root });
+      assert.ok(seen[0]!.argv.includes("model_provider=custom"));
+    });
+
+    it("has no ChatGPT account to summarise: the provider is the summary, the key never travels", async () => {
+      const { engine } = await ccswitchEngine(fakeExec(successRun).fn);
+      const account = await engine.account();
+      assert.equal(account.source, "none");
+      assert.equal(account.afterSignOut, "signed-out");
+      assert.deepEqual(account.ccswitch, {
+        providerName: "My Codex",
+        host: "api.kytok.xyz",
+        model: "gpt-6-astra",
+      });
+    });
+
+    it("a subscription turn still reports the subscription, metered or not", async () => {
+      const { fn } = fakeExec(successRun);
+      const { engine, root } = await signedInEngine(fn);
+      const result = await engine.delegate({ prompt: "build", cwd: root });
+      assert.equal(result.billing, "subscription");
+      assert.equal(await engine.metered(), false);
+    });
   });
 });

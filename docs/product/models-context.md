@@ -25,6 +25,9 @@ Local Models (Bonsai/Ollama) downloads and deletes. Metered OpenRouter and OpenC
 set up, no default, never auto-chosen unless Free and alone
 ([details](../connections-and-context.md#openrouter-and-opencode)). Local server connects your LM
 Studio, llama.cpp or TabbyAPI ([details](../connections-and-context.md#your-own-model-server)).
+The Codex row can also run on cc-switch
+([details](../connections-and-context.md#codex-on-cc-switch)): metered like OpenRouter, so never
+chosen on the person's behalf, and its list is the provider's own.
 
 ## What the model knows
 

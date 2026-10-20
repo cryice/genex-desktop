@@ -601,6 +601,32 @@ test("with nothing picked, the picker never chooses a paid or hidden model on th
   assert.equal(sendKey(composer(toChoices([openRouter(ready), claude])), timed), "claude-code::claude-opus-5-5");
 });
 
+test("a cc-switch connection's models are only ever picked by the person", () => {
+  // The provider table still says subscription; the connection says it bills per token.
+  const ccswitch = { ...engines[3]!, metered: true };
+  const choices = toChoices([ccswitch]);
+  assert.ok(
+    choices.some((c) => c.key === "codex::gpt-6-astra"),
+    "the relay's models are listed",
+  );
+  assert.ok(
+    choices.every((c) => c.metered === true),
+    "every row says it bills per token",
+  );
+  assert.equal(autoChoice(choices), undefined, "never chosen on the person's behalf");
+  assert.ok(
+    autoChoice(toChoices([ccswitch, engines[2]!]))?.key.startsWith("claude-code::"),
+    "a subscription wins over a cc-switch relay",
+  );
+  // On the subscription connection the same engine is eligible again: the connection decides.
+  const subscription = toChoices([engines[3]!]);
+  assert.ok(
+    subscription.every((c) => c.metered === undefined),
+    "the subscription bills nothing per token",
+  );
+  assert.ok(autoChoice(subscription)?.key.startsWith("codex::"), "and may be chosen on its own");
+});
+
 test("a free model's own trailing Free gives way to its tag", () => {
   assert.equal(withoutFreeWord("Cat Jam Free"), "Cat Jam");
   assert.equal(withoutFreeWord("DeepSeek V4.1 Flash Free"), "DeepSeek V4.1 Flash");

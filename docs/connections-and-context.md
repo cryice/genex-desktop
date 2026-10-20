@@ -110,6 +110,46 @@ starts fresh. Settings shows the accounts as tabs under the provider with + to a
 usage panel names a plan's account when there are several; a switch to a signed-out account starts
 its web sign-in. Signing out deletes only that Studio-owned home and runs the next signed-in account.
 
+### Codex on cc-switch
+
+Codex has two connections, and Settings → Model Providers' Codex row picks between them with a
+switcher labelled **Codex connection**: **ChatGPT** (the subscription, the default) or **cc-switch**
+(a provider the person manages in [cc-switch](https://github.com/farion1231/cc-switch) on this Mac).
+The choice is a preference, not a credential: it is saved as `{ mode }` in `ccswitch.json` in the
+engine home (`shared/codex-connection.ts`), survives restarts, and a missing or unreadable file — or
+one holding anything but the cc-switch mode — reads back as the subscription, so a corrupt preference
+can never strand the row on a connection the person did not pick. `studio:codex.connection.set`
+carries the mode and is native, so fixture profiles refuse it, exactly as they refuse choosing a
+subscription account: it changes where every run connects and writes to disk.
+
+cc-switch is the control plane and Genex the consumer. Nothing is copied out of cc-switch: the engine
+reads cc-switch's own `config.toml` (in the Codex home cc-switch writes to, `~/.codex` by default)
+afresh at every status check and every launch, so a provider switched there takes effect here with no
+import step. The row shows what that file left selected — the provider's display name and its relay's
+host, never the key — and the account tabs and Sign in are absent in this connection, since there is
+no login to summarise: the selected provider is the summary. A provider with a key is Ready (the row
+reads the provider and host); a file cc-switch never wrote, one selecting no provider, or one whose
+selected provider has no key is Not running with that reason and the remedy to manage the providers
+in cc-switch and check again; a config that cannot be read is an error. Whether the relay answers is
+the launch's business and the model list's, so a status check stays a local read.
+
+A launch injects the selected provider as CLI overrides beside the engine's own
+`--ignore-user-config`: the provider id, its `base_url`, its `wire_api`, the env var its key will
+ride in, and `requires_openai_auth=false` forced off whatever the file says — cc-switch writes it
+`true` for relays, and the key is supplied here, so the CLI must not demand a ChatGPT login the
+isolated home (`engine-homes/codex/ccswitch-home`) does not have. The key travels only in the child
+process's environment and stops there: it never reaches `engine.describe`, the renderer or the logs.
+A cc-switch connection is metered (`EngineDescriptor.metered`; a finished build reports `billing:
+"api"`), so the registry never offers it as a fallback or a first ready engine — only the person's
+explicit pick runs on it, as for OpenRouter. Discovery reads the provider's OpenAI-compatible
+`/models`; when that is refused or answers something that is not a model list the picker shows no
+rows rather than a model the launch would fail on, and otherwise falls back to the single model the
+file left selected. Switching connections clears the auth cache, the usage reading and the catalog
+for the next status read, launch and model list; nothing is migrated, so a cc-switch session runs on
+the relay from its first turn. Tests: `codex-ccswitch.test.ts` (the config read, key resolution,
+argv, launch env and discovery), `engine-codex.test.ts`, `codex-connection.test.ts` (the row's
+decisions) and `main-ipc.test.ts` with `ipc-contract.test.ts` (the channel).
+
 ## Install a coding CLI
 
 Install (Update for a CLI too old) in Settings → Model Providers and the chat's sign-in card, and

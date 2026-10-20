@@ -37,6 +37,7 @@ import type {
   ShareOutcome,
 } from "./asset-library.ts";
 import type { HandleCheck, HandleSave } from "./handle.ts";
+import type { CodexConnection } from "./codex-connection.ts";
 import type { PlayStats, StatsPeriod } from "./play-stats.ts";
 import type { PerformanceMark } from "./performance.ts";
 import type { ComposerSendOptions } from "./composer.ts";
@@ -416,6 +417,12 @@ export interface StudioApi {
 
   recheckEngines(engine?: string): Promise<boolean>;
   refreshModels(provider: string): Promise<boolean>;
+  /**
+   * Switch the Codex row's connection (Settings' switcher): the ChatGPT subscription, or a provider
+   * cc-switch manages on this Mac (`shared/codex-connection.ts`). The choice is saved for the next
+   * launch; the answer is the connection now in use, and an `engines.changed` event follows it.
+   */
+  setCodexConnection(mode: CodexConnection): Promise<CodexConnection>;
   cliUpdate(provider: string): Promise<import("./cli-install.ts").CliInstallJob>;
   subscriptionSignIn(opts?: {
     engine?: string;

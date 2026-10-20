@@ -50,3 +50,6 @@ out/
 *.certSigningRequest
 *.mobileprovision
 *.pfx
+
+# WorkBuddy agent workspace data (memory, session state): local only.
+.workbuddy/

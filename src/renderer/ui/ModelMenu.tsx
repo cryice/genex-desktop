@@ -52,6 +52,12 @@ export interface ModelChoice extends ModelCapabilities {
   resolvedModel?: string;
   /** Runs at no cost and with no account: the studio may pick it when there is nothing else. */
   free?: boolean;
+  /**
+   * Bills per token right now (OpenRouter's API, or Codex on cc-switch's selected provider):
+   * the studio's own choices — an auto pick, a fallback — never land on it. Read from the
+   * descriptor's own flag, with the provider table's static billing as the fallback.
+   */
+  metered?: boolean;
 }
 /** The composer's way to open the menu (a plan that failed on its model offers "Choose model"). */
 export interface ModelMenuHandle {

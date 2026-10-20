@@ -40,7 +40,13 @@ const VENDOR_GROUP: Partial<Record<string, string>> = {
 
 /** A model this Mac runs through the studio's own loop: Ollama, Bonsai — never a metered API. */
 const isLocalModelEngine = (engine: EngineDescriptor): boolean =>
-  engine.kind === EngineKind.Direct && !isMetered(engine.id);
+  engine.kind === EngineKind.Direct && !billsPerToken(engine);
+
+/**
+ * Does this engine bill per token right now? The descriptor's own flag (a cc-switch connection is
+ * metered while the subscription is not), with the provider table's static billing behind it.
+ */
+const billsPerToken = (engine: EngineDescriptor): boolean => engine.metered ?? isMetered(engine.id);
 
 /** Section header a picker row sits under: who makes the models, or this Mac. */
 function groupLabel(engine: EngineDescriptor): string {
@@ -67,7 +73,7 @@ function engineChoices(
   if (isLocalModelEngine(engine)) return ready ? engine.models.map((model) => localChoice(engine, model)) : [];
   // A paid provider is set up in Settings, never from the picker: until it is ready its models
   // (OpenRouter's catalog is public) are hidden rows, so a pick saved on one still resolves.
-  if (isMetered(engine.id) && !ready) return engine.models.map((model) => subscriptionChoice(engine, model, false));
+  if (billsPerToken(engine) && !ready) return engine.models.map((model) => subscriptionChoice(engine, model, false));
   const models =
     engine.kind === EngineKind.Direct
       ? apiModelChoices(engine, picker)
@@ -161,6 +167,9 @@ function subscriptionChoice(engine: EngineDescriptor, model: EngineModel, shown:
     ...(model.providerDefault ? { providerDefault: true } : {}),
     ...(model.resolvedModel ? { resolvedModel: model.resolvedModel } : {}),
     ...(model.free ? { free: true } : {}),
+    // The billing that applies to this row right now: an auto pick must never land on a
+    // cc-switch provider's models the person did not choose.
+    ...(billsPerToken(engine) ? { metered: true } : {}),
     // Each vendor publishes its own reasoning dial; the effort page offers exactly what
     // the picked model accepts, so a run never dies on a value its CLI refuses.
     contextWindow: model.contextWindow,
@@ -277,12 +286,12 @@ export function resolveChoice(choices: ModelChoice[], key: string | null | undef
 
 /**
  * The row a pick falls back to when none was made: the first usable row the picker lists, on a
- * provider the studio may choose by itself. Never a paid one (OpenRouter, OpenCode): the person
- * picks those. A free model is chosen only when every row the picker lists is one.
+ * provider the studio may choose by itself. Never a paid one (OpenRouter, OpenCode, a cc-switch
+ * relay): the person picks those. A free model is chosen only when every row the picker lists is one.
  */
 export function autoChoice(choices: readonly ModelChoice[]): ModelChoice | undefined {
   const usable = choices.filter((choice) => !choice.disabled && !choice.hidden);
-  const own = usable.find((choice) => !isMetered(parseModelKey(choice.key).engine));
+  const own = usable.find((choice) => !(choice.metered ?? isMetered(parseModelKey(choice.key).engine)));
   if (own) return own;
   return usable.every((choice) => choice.free) ? usable[0] : undefined;
 }

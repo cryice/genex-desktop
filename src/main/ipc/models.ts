@@ -14,6 +14,7 @@ import type { OpenRouterLogin } from "../openrouter-login.ts";
 import type { IpcHandle } from "./registrar.ts";
 import { errorMessage } from "../../shared/errors.ts";
 import { EngineId } from "../../shared/providers.ts";
+import { CodexConnection } from "../../shared/codex-connection.ts";
 import { type EngineStatus, EngineStatusCode } from "../../shared/engine-descriptor.ts";
 
 /** The engines whose model list Settings may ask to refresh. */
@@ -48,7 +49,7 @@ const MESSAGE = {
 } as const;
 
 export interface ModelsIpcDeps {
-  core: Pick<StudioCore, "engines">;
+  core: Pick<StudioCore, "engines" | "setCodexConnection">;
   subscription(id: string): SubscriptionEngine | null;
   pushUiEvent(event: UiEvent): void;
   /** OpenRouter's browser sign-in, which hands the key it gets to the engine. */
@@ -60,6 +61,13 @@ export function registerModelsIpc(
   { core, subscription, pushUiEvent, openRouterLogin }: ModelsIpcDeps,
 ): void {
   handle("studio:engines", async () => core.engines.describe());
+  // The Codex row's connection (Settings' switcher): the subscription, or a provider cc-switch
+  // manages. Anything but the cc-switch mode is the subscription: the default, never a lock.
+  handle("studio:codex.connection.set", async (payload) =>
+    core.setCodexConnection(
+      payload?.mode === CodexConnection.Ccswitch ? CodexConnection.Ccswitch : CodexConnection.Subscription,
+    ),
+  );
   handle("studio:models.refresh", async (payload) => {
     const provider = payload?.provider;
     if (typeof provider !== "string" || !REFRESHABLE.has(provider) || !core.engines.has(provider))

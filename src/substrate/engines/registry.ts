@@ -57,13 +57,17 @@ export class EngineRegistry {
   /**
    * The engines in preference order that pass `keep`, each asked whether it is ready, side by side.
    * A metered engine is never among them: a choice the app makes on its own never spends credits.
+   * Metered is both kinds — the provider table's static billing (OpenRouter), and a connection
+   * that bills per token right now (Codex on cc-switch's selected provider), asked of the engine.
    */
   async #readyInOrder(keep: (engine: Engine) => boolean): Promise<Engine[]> {
     const engines = this.#preferredOrder
       .map((id) => this.#engines.get(id))
       .filter((engine): engine is Engine => Boolean(engine) && !isMetered(engine?.id) && keep(engine as Engine));
-    const ready = await Promise.all(engines.map((engine) => this.#readyWithin(engine)));
-    return engines.filter((_, index) => ready[index]);
+    const wanted = await Promise.all(
+      engines.map(async (engine) => (await this.#readyWithin(engine)) && !(await engine.metered?.())),
+    );
+    return engines.filter((_, index) => wanted[index]);
   }
 
   register(engine: Engine): void {
@@ -149,6 +153,9 @@ export class EngineRegistry {
           ...(engine.account ? { account: await engine.account().catch(() => null) } : {}),
           ...(engine.server ? { server: await engine.server().catch(() => null) } : {}),
           provider: providerInfo(engine.id) ?? null,
+          // The billing that applies right now: a cc-switch connection is metered while the
+          // subscription is not, and the UI shows the difference the same way it shows OpenRouter's.
+          metered: isMetered(engine.id) || ((await engine.metered?.()) ?? false),
           models: models.map(describedModel),
           defaultModel: (await engine.defaultModel?.()) ?? null,
         };

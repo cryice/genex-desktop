@@ -4,7 +4,13 @@ import { ModelCatalog, CatalogError, CATALOG_DEADLINE_MS } from "./model-catalog
 import { ModelCatalogSource, ModelCatalogProblemCode } from "../../shared/model-catalog.ts";
 import { readCodexModels } from "./codex-models.ts";
 import { ReasoningEffort, supportedPreferences, type ModelPreferences } from "../../shared/model-preferences.ts";
-import { cliVersion, requireCodingCli, resolveCodingCli, invalidateCodingCli } from "./external-cli.ts";
+import {
+  cliVersion,
+  invalidateCodingCli,
+  requireCodingCli,
+  resolveCodingCli,
+  type CliInstallation,
+} from "./external-cli.ts";
 import { codexSessionMetadata, type CodexSessionMetadata } from "./codex-session.ts";
 /**
  * Delegated engine — Codex on a ChatGPT subscription, the second
@@ -46,7 +52,17 @@ import { relativizeWorkspace } from "../paths.ts";
 import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { pathExists } from "../fsx.ts";
+import { ensureDir, pathExists } from "../fsx.ts";
+import {
+  CcswitchAbsence,
+  ccswitchLaunchEnv,
+  ccswitchModels,
+  ccswitchProviderArgs,
+  readCcswitchConfig,
+  type CcswitchConfig,
+  type CcswitchProvider,
+} from "./codex-ccswitch.ts";
+import { CodexConnection } from "../../shared/codex-connection.ts";
 import { AccountId, accountsRoot, SubscriptionAccounts } from "./subscription-accounts.ts";
 import type { Usage } from "../types.ts";
 import {
@@ -125,7 +141,7 @@ import { engineMode, PermissionMode } from "../../shared/permissions.ts";
 import { MINUTE_MS, SECOND_MS } from "../../shared/duration.ts";
 import { CodingCliState } from "../../shared/coding-cli.ts";
 import { EngineId } from "../../shared/providers.ts";
-import { EngineKind, EngineStatusCode, LoginSource } from "../../shared/engine-descriptor.ts";
+import { EngineKind, EngineStatusCode, LoginSource, type CcswitchInfo } from "../../shared/engine-descriptor.ts";
 import { ChatActivityPhase } from "../../shared/chat-activity.ts";
 import { ContextSource } from "../../shared/context.ts";
 import { EngineFailureKind, StopReason } from "../../shared/engine-requests.ts";
@@ -146,6 +162,16 @@ export interface CodexEngineOptions {
   hostSkills?: HostSkills;
   /** Where the host skills live; unset = `~/.agents/skills`. A test seam. */
   hostSkillsDir?: string;
+  /**
+   * How this engine connects: the ChatGPT subscription (default), or a provider cc-switch
+   * manages on this Mac. In the cc-switch connection the engine reads cc-switch's
+   * `config.toml` at every launch (`ccswitchHome`), injects the selected provider as CLI
+   * overrides and hands its key to the child's environment — and never asks the CLI to sign
+   * in to anything. Metered: the registry's own choices skip it.
+   */
+  connection?: CodexConnection;
+  /** Where cc-switch writes its Codex providers (`~/.codex` by default). A test seam. */
+  ccswitchHome?: string;
   /**
    * Dedicated credential home, used when the studio signs into its own ChatGPT account. Its parent
    * is the studio's own folder: the host keeps its ownership-lock records beside the home.
@@ -248,6 +274,12 @@ const DEFAULT_MODEL = "default";
 const CREDENTIAL_FILE = "auth.json";
 /** The marker a studio-connected profile leaves in the engine home, signed in or not. */
 const STUDIO_LOGIN_MARKER = "studio-login.json";
+/**
+ * The home a cc-switch session runs under, inside the engine home: empty, so `--ignore-user-config`
+ * and the CLI's own `$CODEX_HOME/AGENTS.md` and `skills` loading have nothing of the user's to
+ * find. Written by the CLI itself (its sessions and logs), never by us.
+ */
+const CCSWITCH_CLI_HOME = "ccswitch-home";
 
 /** A still's file name keeps at most this much of its label. */
 const STILL_NAME_CHARS = 40;
@@ -307,7 +339,54 @@ const MESSAGE = {
   NoToolLoop: "Codex has no tool-loop completion; use engine.delegate to build",
   CliMissing: "An external Codex CLI is required. Install or select an external Codex CLI, then Recheck.",
   NotCompacted: "Codex did not compact the session",
+  /** The cc-switch connection's remedy, wherever it is shown. */
+  CcswitchRemedy: "Manage your Codex providers in cc-switch, then check again.",
+  CcswitchNoFile: "cc-switch has no Codex provider selected yet.",
+  CcswitchNoProvider: "cc-switch's Codex config selects no provider.",
+  CcswitchUnreadable: "cc-switch's Codex config could not be read.",
+  CcswitchNoKey: "The selected cc-switch provider has no API key.",
 } as const;
+
+/** Why a cc-switch connection cannot start a turn, in the words Settings shows. */
+function ccswitchAbsenceDetail(reason: CcswitchAbsence): string {
+  switch (reason) {
+    case CcswitchAbsence.NoFile:
+      return MESSAGE.CcswitchNoFile;
+    case CcswitchAbsence.NoProvider:
+      return MESSAGE.CcswitchNoProvider;
+    case CcswitchAbsence.NoKey:
+      return MESSAGE.CcswitchNoKey;
+    default:
+      return MESSAGE.CcswitchUnreadable;
+  }
+}
+
+/** Why a cc-switch launch failed: the reason, and what to do about it. */
+function ccswitchLaunchFailure(reason: CcswitchAbsence): string {
+  return `${ccswitchAbsenceDetail(reason)} ${MESSAGE.CcswitchRemedy}`;
+}
+
+/** A provider's host, for a status line: the URL's own host, or the URL as it stands. */
+function hostOf(baseUrl: string): string {
+  try {
+    return new URL(baseUrl).host;
+  } catch {
+    return baseUrl;
+  }
+}
+
+/**
+ * What Settings shows for a cc-switch connection: the selected provider's name, its relay's host
+ * and the model left selected. The key never travels this far — it rides the child's own
+ * environment and stops there.
+ */
+function ccswitchInfo(provider: CcswitchProvider): CcswitchInfo {
+  return {
+    providerName: provider.name ?? provider.id,
+    host: hostOf(provider.baseUrl),
+    model: provider.model,
+  };
+}
 
 const RATE_LIMIT_PATTERNS = [/rate.?limit/i, /too many requests/i, /\b429\b/, /quota/i];
 const USAGE_LIMIT_PATTERNS = [
@@ -397,6 +476,13 @@ export class CodexEngine implements Engine {
   readonly #suppressedSkillsDir: string | null;
   /** The opt-in to dynamic tools on the app server (`CodexEngineOptions.codexDynamicTools`). */
   readonly #dynamicTools: boolean;
+  /** How this engine connects: the ChatGPT subscription, or a provider cc-switch manages. */
+  #connection: CodexConnection;
+  /** cc-switch's home (`~/.codex`): the config.toml Genex reads at every launch and never writes. */
+  readonly #ccswitchHome: string;
+  /** The isolated home a cc-switch session runs under (empty; the CLI's own files land here). */
+  readonly #ccswitchCliHome: string;
+  readonly #onModelsChanged: (() => void) | undefined;
   /**
    * When this CLI's app server last refused the tools or never answered: turns go straight to exec
    * until `DYNAMIC_TOOLS_RETRY_MS` has passed, so one slow handshake does not end the route for the
@@ -434,11 +520,18 @@ export class CodexEngine implements Engine {
     this.#refreshCatalogue = options.refreshCatalogue ?? (options.execFn ? async () => {} : refreshCodexCatalogue);
     this.#findBinaryFn = options.findBinaryFn;
     this.#readRateLimits = options.readRateLimits;
+    this.#connection = options.connection ?? CodexConnection.Subscription;
+    this.#ccswitchHome = options.ccswitchHome ?? this.systemHome;
+    this.#ccswitchCliHome = path.join(this.engineHome, CCSWITCH_CLI_HOME);
+    this.#onModelsChanged = options.onModelsChanged;
   }
 
   /**
    * Settings' summary. Signing out of Studio's profile keeps the profile selected (see
-   * resolveLogin), so it never silently falls back to a Terminal login of another account.
+   * resolveLogin), so it never silently falls back to a Terminal login of another account. On a
+   * cc-switch connection there is no login to summarise: the provider cc-switch selected is the
+   * summary, and its key never travels this far. Either way `connection` names the connection the
+   * row is on, so Settings' switcher shows the one in use.
    */
   async account(): Promise<EngineAccount> {
     const found = this.#findBinaryFn
@@ -446,24 +539,39 @@ export class CodexEngine implements Engine {
       : await this.#resolveCli(EngineId.Codex, this.#executable).catch(() => null);
     const binary = found ? null : await this.#resolveBinary().catch(() => null);
     const version = cliVersion(found?.status.version);
+    const cli = {
+      state: cliState(found, binary),
+      path: found?.status.path ?? binary ?? undefined,
+      ...(version ? { version } : {}),
+    };
+    if (this.#connection === CodexConnection.Ccswitch) {
+      const config = await readCcswitchConfig(this.#ccswitchHome, process.env).catch(() => null);
+      return {
+        source: "none",
+        afterSignOut: "signed-out",
+        cli,
+        connection: this.#connection,
+        ...(config?.kind === "provider" ? { ccswitch: ccswitchInfo(config.provider) } : {}),
+      };
+    }
     const login = await this.resolveLogin();
     return {
       source: login.source,
       ...(login.source === LoginSource.Env ? { variable: "CODEX_HOME" } : {}),
       afterSignOut: "signed-out",
-      cli: {
-        state: cliState(found, binary),
-        path: found?.status.path ?? binary ?? undefined,
-        ...(version ? { version } : {}),
-      },
+      cli,
+      connection: this.#connection,
     };
   }
 
   /**
    * An explicitly selected studio profile wins, including while signed out. Legacy installs
-   * retain environment/studio/system discovery until the user connects through the new UI.
+   * retain environment/studio/system discovery until the user connects through the new UI. A
+   * cc-switch connection has no login at all: its credential is the provider's key, read from
+   * cc-switch's file at each launch and handed to the child — there is no home to resolve.
    */
   async resolveLogin(): Promise<CodexLogin> {
+    if (this.#connection === CodexConnection.Ccswitch) return { source: LoginSource.None, home: null };
     // An account the person chose in Settings runs, signed in or not: never another one silently.
     const chosen = await this.accounts.chosen();
     const chosenHome = chosen && this.accounts.homeFor(chosen);
@@ -496,8 +604,40 @@ export class CodexEngine implements Engine {
     return this.probeAuth();
   }
 
+  /** How this engine connects right now: the subscription, or a provider cc-switch manages. */
+  connection(): CodexConnection {
+    return this.#connection;
+  }
+
+  /**
+   * Switch the connection (Settings' Codex row). The next status read, launch and model list
+   * follow it; nothing is migrated — a cc-switch session runs on the relay from its first turn.
+   */
+  setConnection(mode: CodexConnection): void {
+    if (this.#connection === mode) return;
+    this.#connection = mode;
+    this.#authFailure = null;
+    this.#authCache = null;
+    this.#forgetUsage();
+    this.#catalog.invalidate();
+    this.#onModelsChanged?.();
+  }
+
+  /**
+   * A cc-switch connection is metered: its provider bills per token, so a choice the studio
+   * makes on its own (auto-pick, fallback) never spends on it. The person's explicit pick runs.
+   */
+  async metered(): Promise<boolean> {
+    return this.#connection === CodexConnection.Ccswitch;
+  }
+
+  /** What a finished build reports it ran on: the subscription, or a cc-switch relay's API. */
+  #billing(): DelegateResult["billing"] {
+    return this.#connection === CodexConnection.Ccswitch ? "api" : "subscription";
+  }
+
   loginHint(): string {
-    return MESSAGE.LoginHint;
+    return this.#connection === CodexConnection.Ccswitch ? MESSAGE.CcswitchRemedy : MESSAGE.LoginHint;
   }
 
   async probeAuth(): Promise<EngineStatus> {
@@ -523,6 +663,16 @@ export class CodexEngine implements Engine {
     if (!binary) {
       return { code: EngineStatusCode.NotInstalled, detail: MESSAGE.CliRequired, remedy: MESSAGE.InstallRemedy };
     }
+    const status =
+      this.#connection === CodexConnection.Ccswitch
+        ? await this.#readCcswitchStatus()
+        : await this.#readSubscriptionStatus(installation, binary);
+    this.#authCache = { at: Date.now(), status };
+    return status;
+  }
+
+  /** The subscription's sign-in, asked of the CLI itself: a credential file proves nothing. */
+  async #readSubscriptionStatus(installation: CliInstallation | null, binary: string): Promise<EngineStatus> {
     const login = await this.resolveLogin();
     const home = login.home ?? this.systemHome;
     const cli = await (
@@ -531,9 +681,29 @@ export class CodexEngine implements Engine {
     )(home);
     const connected = cli.loggedIn === true && cli.method === "chatgpt";
     if (connected) this.#authFailure = null;
-    const status = connected ? connectedStatus(login) : notConnectedStatus(cli, this.loginHint());
-    this.#authCache = { at: Date.now(), status };
-    return status;
+    return connected ? connectedStatus(login) : notConnectedStatus(cli, this.loginHint());
+  }
+
+  /**
+   * The cc-switch connection's status: what cc-switch left selected, read now. A file it never
+   * wrote is a nudge to configure a provider; a provider without a key is a nudge to paste one;
+   * a provider with a key is Ready. Whether the relay actually answers is the launch's business
+   * and the model list's, so a status check stays a local read.
+   */
+  async #readCcswitchStatus(): Promise<EngineStatus> {
+    const config = await readCcswitchConfig(this.#ccswitchHome, process.env).catch(() => null);
+    if (!config || config.kind === "none") {
+      return {
+        code: config?.reason === CcswitchAbsence.Unreadable ? EngineStatusCode.Error : EngineStatusCode.NotRunning,
+        detail: ccswitchAbsenceDetail(config?.reason ?? CcswitchAbsence.Unreadable),
+        remedy: MESSAGE.CcswitchRemedy,
+      };
+    }
+    this.#authFailure = null;
+    return {
+      code: EngineStatusCode.Ready,
+      detail: `${config.provider.name ?? config.provider.id} · ${hostOf(config.provider.baseUrl)}`,
+    };
   }
 
   async recheckLogin(): Promise<EngineStatus> {
@@ -566,6 +736,8 @@ export class CodexEngine implements Engine {
   /** The email Codex's app server reports for the account signed in to `home`, if it reports one. */
   async accountEmail(home: string): Promise<string | null> {
     if (this.#execFn) return null;
+    // A cc-switch connection has no ChatGPT account for an app server to name.
+    if (this.#connection === CodexConnection.Ccswitch) return null;
     const installation = await requireCodingCli(EngineId.Codex, this.#executable, undefined, false);
     return readCodexAccountEmail(
       installation.path,
@@ -602,6 +774,8 @@ export class CodexEngine implements Engine {
   async #askUsage(): Promise<ProviderUsage | null> {
     // A test double stands in for the CLI; it has no account to ask.
     if (this.#execFn && !this.#readRateLimits) return null;
+    // A cc-switch relay bills per token and reports no plan: the composer has no limits to show.
+    if (this.#connection === CodexConnection.Ccswitch) return null;
     const login = await this.resolveLogin();
     if (login.source === LoginSource.None) return null;
     const home = login.home ?? this.systemHome;
@@ -627,12 +801,35 @@ export class CodexEngine implements Engine {
   catalogSnapshot = () => this.#catalog.snapshot();
 
   async models(): Promise<EngineModel[]> {
+    if (this.#connection === CodexConnection.Ccswitch) {
+      // No "Codex default" row: the model cc-switch left selected *is* the default, and
+      // discovery already offers it as the fallback row.
+      void this.refreshModels().catch(() => {});
+      return this.#catalog.models();
+    }
     void this.refreshModels().catch(() => {});
     return [codexEngineModel(DEFAULT_ROW), ...this.#catalog.models()];
   }
 
   async refreshModels(force = false): Promise<void> {
     const generation = this.#catalog.epoch();
+    if (this.#connection === CodexConnection.Ccswitch) {
+      const config = await readCcswitchConfig(this.#ccswitchHome, process.env).catch(() => null);
+      if (generation !== this.#catalog.epoch()) return;
+      if (!config || config.kind !== "provider") {
+        // Nothing selected (or nothing readable): no rows, until cc-switch has a provider again.
+        this.#catalog.invalidate();
+        return;
+      }
+      const { provider, key } = config;
+      await this.#catalog.refresh(
+        // A different provider, address or key is a different catalogue: the identity carries all three.
+        JSON.stringify(["ccswitch", provider.id, provider.baseUrl, key]),
+        async () => ({ models: await ccswitchModels(provider, key), source: ModelCatalogSource.Provider }),
+        force,
+      );
+      return;
+    }
     const installation = await this.#resolveCli(EngineId.Codex, this.#executable);
     if (installation.status.state !== CodingCliState.Ready) return;
     const login = await this.resolveLogin();
@@ -844,7 +1041,7 @@ export class CodexEngine implements Engine {
     if (run.failure) return this.#failedEnding(run.failure, run, partialState);
 
     this.#authFailure = null;
-    return completedResult(this.id, run, { startedAt, model }, recordedCalls(toolCalls(dir), request));
+    return completedResult(this.id, run, { startedAt, model }, recordedCalls(toolCalls(dir), request), this.#billing());
   }
 
   /**
@@ -882,7 +1079,7 @@ export class CodexEngine implements Engine {
       const ending = { stopReason: StopReason.Error, errorText: outcome.error ?? MESSAGE.NotCompacted };
       return partialDelegateResult(this.id, ending, partial);
     }
-    return { ...completedResult(this.id, run, asked, []), compacted: true };
+    return { ...completedResult(this.id, run, asked, [], this.#billing()), compacted: true };
   }
 
   /**
@@ -894,12 +1091,17 @@ export class CodexEngine implements Engine {
     signal: AbortSignal,
     turn: { args: string[]; onStderr: (chunk: string) => void } | null = null,
   ): Promise<CodexAppServerConnection> {
-    const { home, env, installation } = await this.#cli(signal, Boolean(this.#appServerFn));
-    const argv = [APP_SERVER_COMMAND, ...(await codexProfileArgs(home)), ...(turn?.args ?? [])];
-    const invocation = { argv, cwd, env, signal, ...(turn ? { onStderr: turn.onStderr } : {}) };
+    const launch = await this.#cli(signal, Boolean(this.#appServerFn));
+    const argv = [
+      APP_SERVER_COMMAND,
+      ...(await codexProfileArgs(launch.home)),
+      ...(launch.ccswitch?.kind === "provider" ? ccswitchProviderArgs(launch.ccswitch.provider) : []),
+      ...(turn?.args ?? []),
+    ];
+    const invocation = { argv, cwd, env: launch.env, signal, ...(turn ? { onStderr: turn.onStderr } : {}) };
     if (this.#appServerFn) return this.#appServerFn(invocation);
-    if (!installation?.path) throw new EngineError(EngineFailureKind.Unavailable, this.id, MESSAGE.CliMissing);
-    return spawnCodexAppServer(installation.path)(invocation);
+    if (!launch.installation?.path) throw new EngineError(EngineFailureKind.Unavailable, this.id, MESSAGE.CliMissing);
+    return spawnCodexAppServer(launch.installation.path)(invocation);
   }
 
   /**
@@ -1190,7 +1392,10 @@ export class CodexEngine implements Engine {
 
   /** One read of the session file: the model and CLI it names, a new compaction, a new context reading. */
   async #readSessionMetadata(request: DelegateRequest, run: CodexRun, read: MetadataRead): Promise<void> {
-    const home = (await this.resolveLogin()).home ?? this.systemHome;
+    const home =
+      this.#connection === CodexConnection.Ccswitch
+        ? this.#ccswitchCliHome
+        : ((await this.resolveLogin()).home ?? this.systemHome);
     const metadata = await codexSessionMetadata(home, read.sessionId, read.startedAt);
     run.modelUsed ??= metadata.model;
     run.cliVersion = metadata.cliVersion ?? run.cliVersion;
@@ -1235,18 +1440,28 @@ export class CodexEngine implements Engine {
     const aborted = request.signal?.aborted;
     if (aborted || run.deadlineHit) return partialDelegateResult(this.id, interruption(aborted), partialState());
     const classified = this.#classify(err as Error, run.stderrTail);
-    if (classified.kind === EngineFailureKind.Auth) this.#authFailure = classified.message;
+    if (this.#remembersAuthFailure(classified)) this.#authFailure = classified.message;
     throw classified;
   }
 
   /** A turn the CLI reported as failed: a limit or a sign-in is thrown, anything else reported. */
   #failedEnding(failure: string, run: CodexRun, partialState: () => PartialDelegateState): DelegateResult {
     const classified = this.#classify(new Error(failure), run.stderrTail);
-    if (classified.kind === EngineFailureKind.Auth) this.#authFailure = classified.message;
+    if (this.#remembersAuthFailure(classified)) this.#authFailure = classified.message;
     // A limit or a dead session is the run policy's business — pausing and signing in live
     // above us. Anything else left real work on disk and reports as an outcome.
     if (classified.kind !== EngineFailureKind.Other) throw classified;
     return partialDelegateResult(this.id, { stopReason: StopReason.Error, errorText: failure }, partialState());
+  }
+
+  /**
+   * Whether a failed turn should be remembered as a dead sign-in. On a cc-switch connection an
+   * auth-shaped failure is the relay refusing the key cc-switch holds — a "Connect your ChatGPT
+   * subscription" remedy for the next quarter hour would point the wrong way, and the launch
+   * reads cc-switch's file afresh anyway, which is where the real state shows up.
+   */
+  #remembersAuthFailure(classified: EngineError): boolean {
+    return classified.kind === EngineFailureKind.Auth && this.#connection !== CodexConnection.Ccswitch;
   }
 
   async #exec(invocation: {
@@ -1257,7 +1472,8 @@ export class CodexEngine implements Engine {
     onStderr?: (chunk: string) => void;
     onInstallation?: (installation: CodexInstallation) => void;
   }): Promise<AsyncIterable<Record<string, unknown>>> {
-    const { home, env, installation } = await this.#cli(invocation.signal, Boolean(this.#execFn));
+    const launch = await this.#cli(invocation.signal, Boolean(this.#execFn));
+    const { home, env, installation } = launch;
     // --ignore-user-config must not make a keychain login fall back to file-only auth.
     // Codex discards root -c values when exec/resume has its own -c options.
     // All overrides must be in the leaf command, before the stdin prompt argument.
@@ -1265,6 +1481,9 @@ export class CodexEngine implements Engine {
       ...invocation.argv.slice(0, -1),
       ...(await hostSkillArgs(this.#suppressedSkillsDir)),
       ...(await codexProfileArgs(home)),
+      // A cc-switch connection's provider travels as overrides beside the isolation flags; its
+      // key is in `env` (the child's own, unfiltered), never in this argv.
+      ...(launch.ccswitch?.kind === "provider" ? ccswitchProviderArgs(launch.ccswitch.provider) : []),
       // The features every session turns off follow the auth overrides, right before the prompt.
       ...(await this.#ownedFeatureArgs(installation, env)),
       invocation.argv.at(-1) ?? "-",
@@ -1280,16 +1499,43 @@ export class CodexEngine implements Engine {
    * The CLI a session runs on, the sign-in home it runs under and the environment that carries
    * it. No installation is looked up when a test injected the process.
    */
-  async #cli(
-    signal: AbortSignal,
-    injected: boolean,
-  ): Promise<{ home: string; env: Record<string, string>; installation: CodexInstallation | null }> {
+  async #cli(signal: AbortSignal, injected: boolean): Promise<CodexLaunch> {
+    if (this.#connection === CodexConnection.Ccswitch) return this.#ccswitchCli(signal, injected);
     const login = await this.resolveLogin();
     const home = login.home ?? this.systemHome;
     signal.throwIfAborted();
     const installation = injected ? null : await requireCodingCli(EngineId.Codex, this.#executable, signal);
     signal.throwIfAborted();
-    return { home, env: subscriptionEnv({ ...installation?.env, CODEX_HOME: home }), installation };
+    return {
+      home,
+      env: subscriptionEnv({ ...installation?.env, CODEX_HOME: home }),
+      installation,
+      ccswitch: null,
+    };
+  }
+
+  /**
+   * A cc-switch session's launch: cc-switch's file read now, the selected provider injected as
+   * CLI overrides, and its key in the child's environment — the one place it goes, never stored,
+   * never logged, never in an argv. The session runs under an isolated, empty home, so the CLI's
+   * own `$CODEX_HOME` loading (AGENTS.md, skills) has nothing of the user's to find.
+   */
+  async #ccswitchCli(signal: AbortSignal, injected: boolean): Promise<CodexLaunch> {
+    const config = await readCcswitchConfig(this.#ccswitchHome, process.env);
+    signal.throwIfAborted();
+    if (config.kind !== "provider") {
+      throw new EngineError(EngineFailureKind.Unavailable, this.id, ccswitchLaunchFailure(config.reason));
+    }
+    await ensureDir(this.#ccswitchCliHome).catch(() => {});
+    signal.throwIfAborted();
+    const installation = injected ? null : await requireCodingCli(EngineId.Codex, this.#executable, signal);
+    signal.throwIfAborted();
+    return {
+      home: this.#ccswitchCliHome,
+      env: subscriptionEnv({ ...installation?.env, CODEX_HOME: this.#ccswitchCliHome }, ccswitchLaunchEnv(config.key)),
+      installation,
+      ccswitch: config,
+    };
   }
 
   /**
@@ -1336,6 +1582,9 @@ export class CodexEngine implements Engine {
   }
 
   #classify(err: Error, extra = ""): EngineError {
+    // An error this engine already classified — a cc-switch launch's failure, say — carries its
+    // kind and its user-facing words; reclassifying from its text would lose both.
+    if (err instanceof EngineError) return err;
     const text = `${err.message}\n${extra}`.trim();
     if (SPAWN_FAILURE_PATTERN.test(text)) {
       return new EngineError(
@@ -1373,6 +1622,17 @@ type OwnershipLocks = LockRecord;
 interface CodexLogin {
   source: LoginSource;
   home: string | null;
+}
+
+/**
+ * What one launch runs on: the home it runs under, the environment that carries its sign-in (or
+ * a cc-switch provider's key), the CLI, and the provider a cc-switch connection selected.
+ */
+interface CodexLaunch {
+  home: string;
+  env: Record<string, string>;
+  installation: CodexInstallation | null;
+  ccswitch: CcswitchConfig | null;
 }
 
 /** Everything one delegation learns from the CLI, in the order it learns it. */
@@ -1437,13 +1697,14 @@ function completedResult(
   run: CodexRun,
   asked: { startedAt: number; model: string | undefined },
   studioToolCalls: NonNullable<DelegateResult["studioToolCalls"]>,
+  billing: DelegateResult["billing"],
 ): DelegateResult {
   return {
     ok: true,
     summary: run.summary,
     usage: run.usage,
     turns: run.turns,
-    billing: "subscription",
+    billing,
     engine,
     durationMs: Date.now() - asked.startedAt,
     ...(run.modelUsed ? { model: run.modelUsed } : {}),
@@ -2252,9 +2513,16 @@ function imageArgs(paths: string[]): string[] {
  * CLI to per-token billing that no UI ever agreed to, so both are stripped here. SEC-2: so is
  * every other credential and every Anthropic/Claude variable; `extra` (usually the resolved CLI's
  * whole environment plus CODEX_HOME) is filtered the same way.
+ *
+ * `set` is the one channel that bypasses the filter (child-env: what the caller sets is the
+ * child's own and always arrives). A cc-switch connection's provider key rides it: the relay's
+ * key is not an ambient credential to strip, it is the connection itself.
  */
-function subscriptionEnv(extra: Record<string, string | undefined> = {}): Record<string, string> {
-  return codexSubscriptionEnv(extra) as Record<string, string>;
+function subscriptionEnv(
+  extra: Record<string, string | undefined> = {},
+  set?: Record<string, string | undefined>,
+): Record<string, string> {
+  return codexSubscriptionEnv(extra, set) as Record<string, string>;
 }
 
 function emptyUsage(engine: string): Usage {

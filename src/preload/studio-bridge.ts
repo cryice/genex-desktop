@@ -283,6 +283,7 @@ function studioCalls(bridge: BridgeCalls) {
     cancelModelDownload: () => invoke("studio:cancel-model-download", {}),
     modelInstallStatus: () => invoke("studio:model-install.status"),
     refreshModels: (provider) => invoke("studio:models.refresh", { provider }),
+    setCodexConnection: (mode) => invoke("studio:codex.connection.set", { mode }),
     cliUpdate: (provider) => invoke("studio:cli.update", { provider }),
     cliInstall: (provider) => invoke("studio:cli-install.start", { provider }),
     cliInstallStatus: () => invoke("studio:cli-install.status"),

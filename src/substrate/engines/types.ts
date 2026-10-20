@@ -512,6 +512,12 @@ export interface Engine {
   usageSnapshot?: () => ProviderUsage | null;
   /** Subscription engines: the plan's limits, read from the provider without starting a turn. */
   readUsage?(): Promise<ProviderUsage | null>;
+  /**
+   * Does this engine bill per token right now, so the studio must never spend on it without an
+   * explicit pick? True for a connection that runs on a provider's API key (Codex on cc-switch's
+   * selected provider), false while it runs on the user's own subscription.
+   */
+  metered?(): Promise<boolean>;
   /** Subscription engines: login source and CLI summary for Settings. */
   account?(): Promise<EngineAccount>;
   /** A local server engine: the saved server for Settings, or null while none is saved. */
