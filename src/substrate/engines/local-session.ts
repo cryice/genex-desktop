@@ -48,6 +48,14 @@ import {
   type ToolDefinition,
 } from "./types.ts";
 
+/**
+ * The reply budget one turn gets when neither the engine nor the model names one. A session on a
+ * hosted model asks for what that model can write instead (`LocalSessionOptions.replyTokens`): at
+ * this ceiling a worker asked for a whole module is cut off mid-reply, on every reply, and never
+ * finishes the file.
+ */
+export const DEFAULT_SESSION_REPLY_TOKENS = 3_072;
+
 /** How long and how hard a local session works. */
 const LOCAL_SESSION_LIMITS = {
   /** Model turns when the request sets no cap. */
@@ -56,9 +64,12 @@ const LOCAL_SESSION_LIMITS = {
   compactionAttempts: 5,
   /** Whole rounds of recent work the first compaction keeps; each retry keeps one fewer. */
   keptRounds: 2,
-  replyTokens: 3072,
-  /** Replies cut off by the output limit before the session gives up on them. */
-  outputRepairs: 2,
+  /**
+   * Replies cut off by the output limit in a row before the session ends. Each cut reply is dropped
+   * whole — its tool calls never ran — and the model is told to go smaller; only a model that keeps
+   * overrunning for this many turns in a row ends the session, and it ends it as done.
+   */
+  outputRepairs: 6,
   /** Completed-action ids a checkpoint message lists (the count covers the rest). */
   listedActions: 50,
   /** A tool's answer as the model reads it, and as the chat previews it. */
@@ -111,6 +122,12 @@ export interface LocalSessionOptions {
   complete: (r: CompleteRequest) => Promise<CompleteResponse>;
   /** The working context, the same for every model (a local runtime) or per model (an API's catalog). */
   contextWindow: number | ((model: string) => number);
+  /**
+   * The reply budget for one turn, the same for every model or per model. An engine that knows its
+   * model's output cap passes it, so a session asks for what the model can actually write instead
+   * of the studio's own ceiling (`DEFAULT_SESSION_REPLY_TOKENS`).
+   */
+  replyTokens?: number | ((model: string) => number);
   toolPath?: () => Promise<string>;
 }
 
@@ -120,6 +137,8 @@ interface LocalRun {
   engine: string;
   request: DelegateRequest;
   model: string;
+  /** The most tokens one reply of this session may take, from the model's own cap. */
+  replyTokens: number;
   cwd: string;
   id: string;
   signal: AbortSignal;
@@ -175,6 +194,12 @@ export class LocalSessions {
   contextWindowFor(model: string): number {
     const window = this.options.contextWindow;
     return typeof window === "number" ? window : window(model);
+  }
+
+  /** The reply budget for one model: what its engine names, or the studio's own ceiling. */
+  replyTokensFor(model: string): number {
+    const budget = this.options.replyTokens ?? DEFAULT_SESSION_REPLY_TOKENS;
+    return typeof budget === "number" ? budget : budget(model);
   }
 
   /** Run (or resume) one session to its ending. */
@@ -331,6 +356,7 @@ export class LocalSessions {
       engine: this.engine,
       request,
       model,
+      replyTokens: this.replyTokensFor(model),
       cwd,
       id,
       signal,
@@ -458,7 +484,9 @@ export class LocalSessions {
 
   /**
    * A reply cut off by its output limit. Original completed calls remain saved. Do not add a
-   * partial tool_use or pretend that a truncated narrative is a successful final answer.
+   * partial tool_use or pretend that a truncated narrative is a successful final answer. The
+   * session goes on — a cut reply is a turn that wrote nothing, never a failed session — and only a
+   * model that keeps overrunning ends it, as done, with its work kept.
    */
   async #repairTruncatedReply(run: LocalRun): Promise<DelegateResult | null> {
     run.messages.push({ role: "user", content: LOCAL_NOTE.outputLimit });
@@ -466,7 +494,7 @@ export class LocalSessions {
     run.request.onEvent?.({ type: DelegateEventType.Status, payload: { message: LOCAL_NOTE.outputLimit } });
     run.outputRepairs++;
     if (run.outputRepairs > LOCAL_SESSION_LIMITS.outputRepairs)
-      return localResult(run, false, StopReason.Length, LOCAL_NOTE.outputRepeatedlyTooLong);
+      return localResult(run, true, StopReason.Length, LOCAL_NOTE.outputRepeatedlyTooLong);
     return null;
   }
 
@@ -652,7 +680,7 @@ function completionRequest(run: LocalRun): CompleteRequest {
     tools:
       run.mode === PermissionMode.Plan ? run.definitions.filter((t) => !changesSomething(t.name)) : run.definitions,
     effort: request.effort ?? ReasoningEffort.Low,
-    maxTokens: LOCAL_SESSION_LIMITS.replyTokens,
+    maxTokens: run.replyTokens,
     contextPolicy: request.contextPolicy ?? { mode: "default" },
     onContext: (m) => request.onEvent?.({ type: DelegateEventType.Context, payload: { ...m, sessionId: id } }),
     onActivity: (phase) =>

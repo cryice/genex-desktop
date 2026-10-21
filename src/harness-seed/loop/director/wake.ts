@@ -165,10 +165,15 @@ const USER_WAKES: ReadonlySet<WakeReason> = new Set<WakeReason>([
 ]);
 
 /**
- * An open Loop's lead going straight on with its own work (its turn's cap, a turn that worked): the
- * hourly cap never holds that back, so a wake that carries it is never counted in the cap either.
+ * An open Loop's lead going straight on with its own work (its turn's cap, a turn that worked), or
+ * a turn that failed and is asked again: the hourly cap never holds those back, so a wake that
+ * carries one is never counted in the cap either.
  */
-const SELF_CONTINUED: ReadonlySet<WakeReason> = new Set<WakeReason>([WakeCause.CarryOn, WakeCause.TurnCap]);
+const SELF_CONTINUED: ReadonlySet<WakeReason> = new Set<WakeReason>([
+  WakeCause.CarryOn,
+  WakeCause.TurnCap,
+  WakeCause.TurnFailed,
+]);
 
 /** The director's session as the run talks to it: one turn at a time, and the session id it resumes. */
 export interface DirectorTalk {
@@ -245,6 +250,8 @@ export interface WakeState {
   journaledAt: number;
   limitWaits: number;
   freshSessions: number;
+  /** The lead's turns that failed in a row; a turn that ended any other way starts the count again. */
+  failedTurns: number;
   /** The turn whose failure started the wrap-up. */
   failed: Partial<DelegateResult> | null;
   /** When the run's job ends were last asked for (null: not yet), so the host is asked at most every `JOB_POLL_MS`. */
@@ -309,6 +316,7 @@ function newWakeState(restored: RestoredWake = { idleAsked: false, wakesAt: [] }
     journaledAt: 0,
     limitWaits: 0,
     freshSessions: restored.freshSessions ?? 0,
+    failedTurns: restored.failedTurns ?? 0,
     failed: null,
     jobsPolledAt: null,
   };
@@ -458,6 +466,7 @@ async function turnFacts(
   const roundsRunning = !open && runningWorkers().some((worker) => worker.mode === WorkerMode.Loop);
   return {
     ok: result?.ok === true,
+    failedTurns: wake.failedTurns,
     closed: loopRunOver(loopRun) || wake.wrapping,
     providerLost: Boolean(state.limit) || (await pauseOnLostSignIn(loopRun, now)),
     running,
@@ -542,6 +551,8 @@ function settleTurn(
   now: number,
 ) {
   wake.idleAsked = verdict.idleAsked;
+  // The allowance is for failures in a row: a turn that ended any other way starts the count again.
+  wake.failedTurns = verdict.next === TurnEnd.Retry ? wake.failedTurns + 1 : 0;
   if (verdict.next === TurnEnd.AskIdle) wake.idleDue = true;
   if (verdict.next === TurnEnd.ArtDirection) wake.finishMarkDue = true;
   if (verdict.next !== TurnEnd.WrapUp) return;
@@ -1736,6 +1747,7 @@ async function turnThenBetween(
  */
 async function dueAfter(loopRun: LoopRun, wake: WakeState, kit: TurnKit, verdict: TurnVerdict): Promise<Wake | null> {
   if (verdict.next === TurnEnd.Continue) return { at: kit.clock.now(), reasons: [WakeCause.TurnCap] };
+  if (verdict.next === TurnEnd.Retry) return { at: kit.clock.now(), reasons: [WakeCause.TurnFailed] };
   if (verdict.next === TurnEnd.CarryOn) return carryOnWake(loopRun, wake, kit);
   await rest(loopRun, wake, kit.clock.now());
   const due = await sleepUntilDue(loopRun, wake, kit);

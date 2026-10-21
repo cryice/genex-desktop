@@ -33,7 +33,7 @@ import {
   streamHttpStatus,
 } from "./pi-completions.ts";
 import { CATALOG_DEADLINE_MS, CatalogError, ModelCatalog } from "./model-catalog.ts";
-import { LocalSessions } from "./local-session.ts";
+import { LocalSessions, DEFAULT_SESSION_REPLY_TOKENS } from "./local-session.ts";
 import { CompletionStop, DEFAULT_COMPACTION_PERCENT, STOPPED_BY_USER } from "./common.ts";
 import type { ApiKeyStore } from "../provider-keys.ts";
 import { SecretStorageUnavailableError } from "../secrets.ts";
@@ -288,6 +288,8 @@ export class OpenRouterEngine implements Engine {
       protectedPaths: options.protectedPaths ?? [options.root],
       complete: (r) => this.complete(r),
       contextWindow: (model) => this.#row(model)?.contextWindow ?? DEFAULT_CONTEXT_TOKENS,
+      // A build worker writes whole modules: ask for what the model can write, not the studio's ceiling.
+      replyTokens: (model) => this.#row(model)?.maxTokens ?? DEFAULT_SESSION_REPLY_TOKENS,
       toolPath: options.toolPath,
     });
   }

@@ -2272,6 +2272,21 @@ export const METERED_PROVIDER_WORDS = {
     remove: "Remove key",
     cancel: "Cancel",
   },
+  deepSeek: {
+    name: "DeepSeek",
+    keysUrl: "https://platform.deepseek.com/api_keys",
+    keyLabel: "DeepSeek API key",
+    keyPlaceholder: "sk-…",
+    save: "Save key",
+    getKey: "Get a key",
+    notConnectedLine: "Paste an API key. Requests are billed to your DeepSeek balance.",
+    connectedLine: "Billed to your DeepSeek balance",
+    refused: "DeepSeek didn't accept that key. Check it and paste it again.",
+    replace: "Replace key…",
+    replaceLine: "The new key is checked before it's saved",
+    remove: "Remove key",
+    cancel: "Cancel",
+  },
 } as const;
 
 /** Settings → Model Providers: the person's own model server (`panels/LocalServerRow.tsx`). */

@@ -81,6 +81,7 @@ describe("engines", () => {
         EngineId.Ollama,
         EngineId.OpenCode,
         EngineId.OpenRouter,
+        EngineId.DeepSeek,
         EngineId.LocalServer,
       ],
     );

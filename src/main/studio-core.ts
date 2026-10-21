@@ -93,9 +93,15 @@ import { OllamaEngine, OllamaSidecar } from "../substrate/engines/ollama.ts";
 import { OpenCodeEngine } from "../substrate/engines/opencode.ts";
 import { LOCK_RECOVERY_DIR } from "../substrate/engines/ownership-locks.ts";
 import { OpenRouterEngine } from "../substrate/engines/openrouter.ts";
+import { DeepSeekEngine } from "../substrate/engines/deepseek.ts";
 import { LocalServerEngine } from "../substrate/engines/local-server.ts";
 import { serverSettings } from "../substrate/local-server/settings.ts";
-import { LOCAL_SERVER_KEY_SECRET, OPENROUTER_KEY_SECRET, secretKeyStore } from "../substrate/provider-keys.ts";
+import {
+  DEEPSEEK_KEY_SECRET,
+  LOCAL_SERVER_KEY_SECRET,
+  OPENROUTER_KEY_SECRET,
+  secretKeyStore,
+} from "../substrate/provider-keys.ts";
 import { EngineRegistry } from "../substrate/engines/registry.ts";
 import type { Engine, LiveToolResult } from "../substrate/engines/types.ts";
 import { EventStore } from "../substrate/event-store.ts";
@@ -1365,6 +1371,7 @@ export class StudioCore {
       ...SUBSCRIPTION_ENGINES,
       EngineId.OpenCode,
       EngineId.OpenRouter,
+      EngineId.DeepSeek,
     ]);
   }
 
@@ -1430,6 +1437,13 @@ export class StudioCore {
         toolPath: async () => (await this.sandbox.toolPath()) ?? process.env.PATH ?? "",
         keys: secretKeyStore(path.join(this.layout.secrets, "providers"), OPENROUTER_KEY_SECRET),
         onModelsChanged: () => this.emit(UiEvent.EnginesChanged, { engine: EngineId.OpenRouter }),
+      }),
+      new DeepSeekEngine({
+        root: path.join(this.layout.engineHomes, EngineId.DeepSeek),
+        scratchRoot: path.join(this.layout.scratch, EngineId.DeepSeek),
+        protectedPaths: this.#protectedPaths(),
+        toolPath: async () => (await this.sandbox.toolPath()) ?? process.env.PATH ?? "",
+        keys: secretKeyStore(path.join(this.layout.secrets, "providers"), DEEPSEEK_KEY_SECRET),
       }),
     ];
   }

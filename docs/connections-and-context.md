@@ -168,11 +168,12 @@ second press joins it and every button follows it (`cli.install`). The page name
 the installer runs outside `ProcessSandbox` ([cli-installer.ts](../src/substrate/cli-installer.ts)).
 A failure says why; Settings then adds the vendor's install guide.
 
-## OpenRouter and OpenCode
+## OpenRouter, DeepSeek and OpenCode
 
-Both are metered (`billing: "metered"` in `shared/providers.ts`): every token is paid to someone,
-so `EngineRegistry` never offers one as a fallback or a first ready engine, and the sign-in gate's
-local finish and the reference judge never pick one. Only the person's explicit pick runs on them.
+All three are metered (`billing: "metered"` in `shared/providers.ts`): every token is paid to
+someone, so `EngineRegistry` never offers one as a fallback or a first ready engine, and the
+sign-in gate's local finish and the reference judge never pick one. Only the person's explicit
+pick runs on them.
 
 **OpenRouter** ([openrouter.ts](../src/substrate/engines/openrouter.ts)) is a direct engine on the
 same pi-ai path as Ollama ([pi-completions.ts](../src/substrate/engines/pi-completions.ts)), and a
@@ -193,6 +194,21 @@ the key; only tool-calling models are listed, with their context, reply cap, vis
 efforts and price. OpenRouter picks no default model. Context is estimated from characters before
 each request (compaction runs early rather than late); 401/403 is a sign-in failure, 402 a usage
 limit, 429 a rate limit. Errors are redacted before they are logged.
+
+**DeepSeek** ([deepseek.ts](../src/substrate/engines/deepseek.ts)) is a direct engine on the same
+pi-ai path, and a game chat or build runs as a Genex session under DeepSeek's own id, as
+OpenRouter's does. It has no browser sign-in: Settings pastes a key over `studio:deepseek.key.save`
+(native), main checks it with `GET /models`, keeps it only when accepted (`deepseek-api-key` in the
+same SecretStore folder) and answers with the engine status, never the key; `studio:deepseek.key.clear`
+forgets it and drops the list. The model list is DeepSeek's own `GET /models`, read with that key:
+`deepseek-flash` (DeepSeek-V4.1-Flash, which reads images) and `deepseek-v4-pro` today, whatever it
+lists tomorrow. Each row's display name, context window, output cap, input modalities and reasoning
+levels come from that answer (thinking is on, levels `low`/`high`/`max`, default `high`); the studio
+keeps no model table of its own, so a model DeepSeek adds appears without a code change. Prices are
+not in the list and are quoted in CNY, so the picker's price line is a small idle–peak table here and
+an id it does not list gets none; no dollar cost is claimed for a reply. DeepSeek picks no default
+model. Failures map as OpenRouter's do: 401/403 is a sign-in failure, 402 a usage limit, 429 a rate
+limit, and errors are redacted before they are logged.
 
 **OpenCode** ([opencode.ts](../src/substrate/engines/opencode.ts)) is a delegated engine that runs
 `opencode run --format json` with the brief on stdin, resumed by `--session`. Two command lines are

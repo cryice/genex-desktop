@@ -1,7 +1,7 @@
 /**
- * The scripted engines of a fixture session: Ollama, Claude Code, Codex, OpenCode, OpenRouter and
- * local server stand-ins that answer from fixed text, never reach an account, a key, a server or the
- * network, and start no vendor worker. Markers in
+ * The scripted engines of a fixture session: Ollama, Claude Code, Codex, OpenCode, OpenRouter,
+ * DeepSeek and local server stand-ins that answer from fixed text, never reach an account, a key, a
+ * server or the network, and start no vendor worker. Markers in
  * the user's words (`fixture:pending`, `fixture:stream`, `fixture:plan`, …) choose the script.
  */
 import { ChatActivityPhase } from "../../shared/chat-activity.ts";
@@ -33,10 +33,16 @@ const FIXTURE_ENGINES = [
   EngineId.Codex,
   EngineId.OpenCode,
   EngineId.OpenRouter,
+  EngineId.DeepSeek,
   EngineId.LocalServer,
 ] as const;
-/** The fixture engines the studio's own loop drives: the local model, OpenRouter's API and a local server. */
-const DIRECT_FIXTURES: ReadonlySet<string> = new Set([EngineId.Ollama, EngineId.OpenRouter, EngineId.LocalServer]);
+/** The fixture engines the studio's own loop drives: the local model, OpenRouter's and DeepSeek's APIs and a local server. */
+const DIRECT_FIXTURES: ReadonlySet<string> = new Set([
+  EngineId.Ollama,
+  EngineId.OpenRouter,
+  EngineId.DeepSeek,
+  EngineId.LocalServer,
+]);
 const READY_STATUS: EngineStatus = { code: EngineStatusCode.Ready, detail: "AG-933 fixture; no account or network" };
 /** No local server is connected in a fixture session, so the picker's lists stay as they were. */
 const NO_LOCAL_SERVER: EngineStatus = {
@@ -95,7 +101,7 @@ const LATEST_MESSAGE = "LATEST USER MESSAGE:\n";
 
 /**
  * First launch: an empty library, Claude Code waiting for a sign-in, Codex and OpenCode not
- * installed, OpenRouter with no key, and no local server.
+ * installed, OpenRouter and DeepSeek with no key, and no local server.
  */
 export const FIRST_LAUNCH_STATUS: Record<string, EngineStatus> = {
   [EngineId.ClaudeCode]: {
@@ -105,6 +111,7 @@ export const FIRST_LAUNCH_STATUS: Record<string, EngineStatus> = {
   [EngineId.Codex]: { code: EngineStatusCode.NotInstalled, detail: "AG-933 fixture; no Codex app" },
   [EngineId.OpenCode]: { code: EngineStatusCode.NotInstalled, detail: "AG-933 fixture; no OpenCode CLI" },
   [EngineId.OpenRouter]: { code: EngineStatusCode.NeedsLogin, detail: "AG-933 fixture; no OpenRouter key" },
+  [EngineId.DeepSeek]: { code: EngineStatusCode.NeedsLogin, detail: "AG-933 fixture; no DeepSeek key" },
   [EngineId.LocalServer]: NO_LOCAL_SERVER,
 };
 

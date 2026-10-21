@@ -16,6 +16,7 @@ import {
   DIRECTOR_LOOP_ENV,
   DirectorLoop,
   directorLoopOf,
+  FAILED_TURNS_BEFORE_WRAP,
   HEARTBEAT_MS,
   MAX_WAKES_PER_HOUR,
   nextWake,
@@ -221,11 +222,14 @@ describe("when the lead is woken (wake-schedule.ts)", () => {
         `${JSON.stringify(busy)} is not idle, and the next idle turn is asked again`,
       );
     assert.deepEqual(afterTurn({ ...idle, closed: true, running: 1 }), { next: TurnEnd.Close, idleAsked: false });
-    assert.deepEqual(afterTurn({ ...idle, ok: false, running: 1 }), {
-      next: TurnEnd.WrapUp,
-      idleAsked: false,
-      wrapCause: WrapCause.Failed,
-    });
+    // FLIPPED (C): one failed turn used to wrap the run up on its own. It is asked again now, and
+    // only a lead that keeps failing spends the allowance — a cut-off reply must not land a build.
+    assert.deepEqual(afterTurn({ ...idle, ok: false, running: 1 }), { next: TurnEnd.Retry, idleAsked: false });
+    assert.deepEqual(
+      afterTurn({ ...idle, ok: false, running: 1, failedTurns: FAILED_TURNS_BEFORE_WRAP }),
+      { next: TurnEnd.WrapUp, idleAsked: false, wrapCause: WrapCause.Failed },
+      "a lead that fails its allowance of turns in a row still wraps the run up",
+    );
     assert.deepEqual(afterTurn({ ...idle, workingTimeLeft: false, running: 1 }), {
       next: TurnEnd.WrapUp,
       idleAsked: false,
@@ -280,10 +284,12 @@ describe("when the lead is woken (wake-schedule.ts)", () => {
     assert.deepEqual(afterTurn(lost), { next: TurnEnd.Close, idleAsked: false });
     assert.deepEqual(afterTurn({ ...lost, workingTimeLeft: false }), { next: TurnEnd.Close, idleAsked: false });
     assert.deepEqual(afterTurn({ ...lost, ok: true, idleAsked: true }), { next: TurnEnd.Close, idleAsked: true });
+    // FLIPPED (C): any other failed turn is asked again now, not wrapped up on the spot.
+    assert.deepEqual(afterTurn({ ...lost, providerLost: false }), { next: TurnEnd.Retry, idleAsked: false });
     assert.deepEqual(
-      afterTurn({ ...lost, providerLost: false }),
+      afterTurn({ ...lost, providerLost: false, failedTurns: FAILED_TURNS_BEFORE_WRAP }),
       { next: TurnEnd.WrapUp, idleAsked: false, wrapCause: WrapCause.Failed },
-      "any other failed turn keeps today's wrap-up",
+      "an allowance of failed turns in a row still wraps up",
     );
   });
 
@@ -310,12 +316,8 @@ describe("when the lead is woken (wake-schedule.ts)", () => {
       idleAsked: false,
       wrapCause: WrapCause.Deadline,
     });
-    // Without the cap, a failed turn wraps up as it always did.
-    assert.deepEqual(afterTurn({ ...capped, capped: false }), {
-      next: TurnEnd.WrapUp,
-      idleAsked: false,
-      wrapCause: WrapCause.Failed,
-    });
+    // FLIPPED (C): without the cap a failed turn is asked again too, never wrapped up at once.
+    assert.deepEqual(afterTurn({ ...capped, capped: false }), { next: TurnEnd.Retry, idleAsked: false });
   });
 
   it("W8. a lead that went to sleep busy is asked what next the moment nothing runs and nothing else is ahead", () => {
@@ -818,6 +820,8 @@ describe("what the journal keeps of the wake loop (journal.ts wakeRecord)", () =
       idleAsked: true,
       // The lost sessions it replaced, so a Resume does not start that allowance again.
       freshSessions: 0,
+      // The failed turns in a row, so a Resume does not start that allowance again either.
+      failedTurns: 0,
       wrapCause: WrapCause.Idle,
       wakes: 2,
       wakesAt: [iso(T0 + 1), iso(T0 + 2)],

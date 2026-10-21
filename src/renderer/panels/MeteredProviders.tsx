@@ -1,10 +1,10 @@
 /**
  * Settings → Model Providers, the metered rows: OpenCode, which signs in to providers itself in
- * Studio's terminal, and OpenRouter, whose API key is pasted here. Each row keeps the shape of a
- * subscription's (`ModelsSection.tsx`): one status plate, one line, at most one visible action, an
- * Account menu once connected, and the picker's model list under it. The OpenRouter key goes
- * straight to main, which checks it with OpenRouter and keeps it in the OS secret store; it is
- * never shown again, and the field forgets it the moment it is sent.
+ * Studio's terminal, and OpenRouter and DeepSeek, whose API keys are pasted here. Each row keeps
+ * the shape of a subscription's (`ModelsSection.tsx`): one status plate, one line, at most one
+ * visible action, an Account menu once connected, and the picker's model list under it. A pasted
+ * key goes straight to main, which checks it with the provider and keeps it in the OS secret
+ * store; it is never shown again, and the field forgets it the moment it is sent.
  */
 import { type JSX, lazy, Suspense, useEffect, useRef, useState } from "react";
 import { type EngineStatus, EngineStatusCode } from "../../shared/engine-descriptor.ts";
@@ -452,14 +452,140 @@ function OpenRouterRow({
   );
 }
 
+const DEEPSEEK_WORDS: ProviderWords = { name: WORDS.deepSeek.name, plans: "", guide: WORDS.deepSeek.keysUrl };
+
+/** The DeepSeek key field: paste, save (checked by DeepSeek first), get a key, or cancel a replacement. */
+function DeepSeekKeyEntry({
+  saving,
+  onSave,
+  onCancel,
+}: {
+  saving: boolean;
+  onSave: (key: string) => Promise<void>;
+  onCancel: (() => void) | null;
+}): JSX.Element {
+  const [key, setKey] = useState("");
+  const save = async (): Promise<void> => {
+    const pasted = key;
+    // The field forgets the key the moment it is sent.
+    setKey("");
+    await onSave(pasted);
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <input
+        type="password"
+        aria-label={WORDS.deepSeek.keyLabel}
+        placeholder={WORDS.deepSeek.keyPlaceholder}
+        autoComplete="off"
+        spellCheck={false}
+        value={key}
+        disabled={saving}
+        onChange={(event) => setKey(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && key.trim()) void save();
+        }}
+        className="h-8 w-64 rounded-control border border-input bg-field px-2.5 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-accent-ink"
+      />
+      <Button variant="default" disabled={saving || !key.trim()} onClick={() => void save()}>
+        {saving ? WORDS.saving : WORDS.deepSeek.save}
+      </Button>
+      <Button onClick={() => void window.studio.openUrl(WORDS.deepSeek.keysUrl)}>{WORDS.deepSeek.getKey}</Button>
+      {onCancel && <Button onClick={onCancel}>{WORDS.deepSeek.cancel}</Button>}
+    </div>
+  );
+}
+
+/** DeepSeek's row by its state: connected, waiting for a key, or unable to check. */
+function deepSeekView(
+  status: EngineStatus,
+  act: { recheck: () => void; replace: () => void; remove: () => void },
+): RowView {
+  if (status.code === EngineStatusCode.Ready)
+    return {
+      tone: RowTone.Connected,
+      status: WORDS.connected,
+      line: WORDS.deepSeek.connectedLine,
+      actions: (
+        <AccountMenu name={WORDS.deepSeek.name} onCheck={act.recheck}>
+          <>
+            <DropdownMenuItem onSelect={act.replace}>
+              <ItemWords title={WORDS.deepSeek.replace} line={WORDS.deepSeek.replaceLine} />
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={act.remove}>{WORDS.deepSeek.remove}</DropdownMenuItem>
+          </>
+        </AccountMenu>
+      ),
+    };
+  if (status.code === EngineStatusCode.NeedsLogin)
+    return { tone: RowTone.Off, status: WORDS.notConnected, line: WORDS.deepSeek.notConnectedLine, actions: null };
+  return {
+    tone: RowTone.Danger,
+    status: WORDS.couldNotCheck,
+    line: status.detail,
+    actions: <Button onClick={act.recheck}>{WORDS.tryAgain}</Button>,
+  };
+}
+
+function DeepSeekRow({
+  engine,
+  onEnginesRefresh,
+}: { engine: EngineDescriptor } & Pick<MeteredProviderProps, "onEnginesRefresh">) {
+  const { run, error } = useRun();
+  const { checking, recheck } = useRecheck(EngineId.DeepSeek, onEnginesRefresh);
+  const [replacing, setReplacing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [refused, setRefused] = useState(false);
+  const ready = engine.status.code === EngineStatusCode.Ready;
+  const save = (key: string): Promise<void> =>
+    run(async () => {
+      setSaving(true);
+      try {
+        const status = await window.studio.deepSeekKeySave(key);
+        const accepted = status.code === EngineStatusCode.Ready;
+        setRefused(!accepted);
+        if (accepted) setReplacing(false);
+        await onEnginesRefresh();
+      } finally {
+        setSaving(false);
+      }
+    });
+  const view = deepSeekView(engine.status, {
+    recheck: () => void run(recheck),
+    replace: () => setReplacing(true),
+    remove: () =>
+      void run(async () => {
+        await window.studio.deepSeekKeyClear();
+        await onEnginesRefresh();
+      }),
+  });
+  const asksForKey = replacing || engine.status.code === EngineStatusCode.NeedsLogin;
+  return (
+    <ProviderCard
+      words={DEEPSEEK_WORDS}
+      engine={engine}
+      view={view}
+      checking={checking}
+      connected={ready && !replacing}
+      problem={error ?? (refused ? WORDS.deepSeek.refused : null)}
+    >
+      {asksForKey && (
+        <DeepSeekKeyEntry saving={saving} onSave={save} onCancel={replacing ? () => setReplacing(false) : null} />
+      )}
+    </ProviderCard>
+  );
+}
+
 /** The metered rows, under the subscriptions: each only when its engine is registered. */
 export function MeteredProviderRows({ engines, onEnginesRefresh }: MeteredProviderProps): JSX.Element {
   const openCode = engines.find((engine) => engine.id === EngineId.OpenCode);
   const openRouter = engines.find((engine) => engine.id === EngineId.OpenRouter);
+  const deepSeek = engines.find((engine) => engine.id === EngineId.DeepSeek);
   return (
     <>
       {openCode && <OpenCodeRow engine={openCode} onEnginesRefresh={onEnginesRefresh} />}
       {openRouter && <OpenRouterRow engine={openRouter} onEnginesRefresh={onEnginesRefresh} />}
+      {deepSeek && <DeepSeekRow engine={deepSeek} onEnginesRefresh={onEnginesRefresh} />}
     </>
   );
 }

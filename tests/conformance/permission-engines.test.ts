@@ -22,10 +22,9 @@ describe("the modes each engine honours", () => {
   it("lists every engine's modes in the composer's order, Auto always among them", () => {
     assert.deepEqual(PERMISSION_MODES, ALL);
     const table = Object.fromEntries(
-      ["claude-code", "codex", "bonsai", "ollama", "openrouter", "opencode", "a-new-engine"].map((engine) => [
-        engine,
-        permissionModesFor(engine),
-      ]),
+      ["claude-code", "codex", "bonsai", "ollama", "openrouter", "deepseek", "opencode", "a-new-engine"].map(
+        (engine) => [engine, permissionModesFor(engine)],
+      ),
     );
     assert.deepEqual(table, {
       "claude-code": ALL,
@@ -34,6 +33,8 @@ describe("the modes each engine honours", () => {
       ollama: ["auto"],
       // OpenRouter's tools run in the studio's own session loop, which asks, as Bonsai's do.
       openrouter: ["auto", "default", "acceptEdits", "plan"],
+      // DeepSeek's do too: the same session loop, so it asks and stays sandboxed.
+      deepseek: ["auto", "default", "acceptEdits", "plan"],
       // `opencode run` cannot stop mid-turn to ask, and always runs in the studio's sandbox.
       opencode: ["auto", "plan"],
       "a-new-engine": ["auto"],
@@ -49,6 +50,7 @@ describe("the modes each engine honours", () => {
     assert.deepEqual(runs("bonsai"), ["auto", "default", "acceptEdits", "plan", "auto"]);
     assert.deepEqual(runs("ollama"), ["auto", "auto", "auto", "auto", "auto"]);
     assert.deepEqual(runs("openrouter"), ["auto", "default", "acceptEdits", "plan", "auto"]);
+    assert.deepEqual(runs("deepseek"), ["auto", "default", "acceptEdits", "plan", "auto"]);
     assert.deepEqual(runs("opencode"), ["auto", "auto", "auto", "plan", "auto"]);
   });
 
@@ -59,6 +61,7 @@ describe("the modes each engine honours", () => {
     assert.deepEqual(reasons("bonsai"), [null, null, null, null, "always_sandboxed"]);
     assert.deepEqual(reasons("ollama"), [null, "cannot_ask", "cannot_ask", "cannot_ask", "cannot_ask"]);
     assert.deepEqual(reasons("openrouter"), [null, null, null, null, "always_sandboxed"]);
+    assert.deepEqual(reasons("deepseek"), [null, null, null, null, "always_sandboxed"]);
     assert.deepEqual(reasons("opencode"), [null, "cannot_ask", "cannot_ask", null, "cannot_ask"]);
   });
 

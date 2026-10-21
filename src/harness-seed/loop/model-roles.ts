@@ -41,6 +41,7 @@ export const EngineId = {
   Ollama: "ollama",
   OpenCode: "opencode",
   OpenRouter: "openrouter",
+  DeepSeek: "deepseek",
   LocalServer: "local-server",
 } as const;
 export type EngineId = (typeof EngineId)[keyof typeof EngineId];
@@ -62,6 +63,7 @@ const SESSION_ENGINES: readonly string[] = [
   EngineId.Bonsai,
   EngineId.OpenCode,
   EngineId.OpenRouter,
+  EngineId.DeepSeek,
   EngineId.LocalServer,
 ];
 

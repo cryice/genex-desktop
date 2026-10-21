@@ -107,6 +107,8 @@ export interface RestoredWake {
   nextShipLookWorkedMs?: number;
   /** The working time the lead was last nudged to verify its outcomes (progress.ts `verifyNudgeDue`). */
   verifyNudgedWorkedMs?: number;
+  /** The lead's turns that failed in a row: a Resume does not start the allowance again. */
+  failedTurns?: number;
 }
 
 /** A time for the journal: ISO, or null. */
@@ -288,6 +290,7 @@ export function journalText(journal: AnyRecord): string | null {
 export function wakeRecord(
   wake: Pick<WakeState, "idleAsked" | "wrapCause" | "wakes" | "wakesAt" | "lastWakeAt" | "asleepSince"> & {
     freshSessions?: number;
+    failedTurns?: number;
     finishMarkSaid?: boolean;
     nextShipLookWorkedMs?: number | null;
     verifyNudgedWorkedMs?: number | null;
@@ -297,6 +300,7 @@ export function wakeRecord(
     loop: DirectorLoop.Wake,
     idleAsked: wake.idleAsked,
     freshSessions: wake.freshSessions ?? 0,
+    failedTurns: wake.failedTurns ?? 0,
     wrapCause: wake.wrapCause,
     wakes: wake.wakes,
     wakesAt: wake.wakesAt.map(iso),
@@ -553,12 +557,14 @@ export function restoredWake(saved: unknown, now: number): RestoredWake {
     .map(msOf)
     .filter((at: number | null): at is number => at !== null && at > now - WAKE_WINDOW_MS && at <= now);
   const freshSessions = Number.isInteger(record.freshSessions) && record.freshSessions > 0 ? record.freshSessions : 0;
+  const failedTurns = Number.isInteger(record.failedTurns) && record.failedTurns > 0 ? record.failedTurns : 0;
   const nextShipLookWorkedMs = workedMsOrNull(record.nextShipLookWorkedMs);
   const verifyNudgedWorkedMs = workedMsOrNull(record.verifyNudgedWorkedMs);
   return {
     idleAsked: record.idleAsked === true,
     wakesAt,
     ...(freshSessions ? { freshSessions } : {}),
+    ...(failedTurns ? { failedTurns } : {}),
     ...(record.finishMarkSaid === true ? { finishMarkSaid: true } : {}),
     ...(nextShipLookWorkedMs === null ? {} : { nextShipLookWorkedMs }),
     ...(verifyNudgedWorkedMs === null ? {} : { verifyNudgedWorkedMs }),

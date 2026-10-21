@@ -126,6 +126,8 @@ export const WakeCause = {
   TurnCap: "turn_cap",
   /** An open Loop's lead whose turn worked, woken at once to go on: never the question of what next. */
   CarryOn: "carry_on",
+  /** The lead's turn failed and it is asked again at once, up to `FAILED_TURNS_BEFORE_WRAP` in a row. */
+  TurnFailed: "turn_failed",
 } as const;
 export type WakeCause = (typeof WakeCause)[keyof typeof WakeCause];
 /** Why one wake happened: a kind of line, or a cause of its own. */
@@ -153,6 +155,8 @@ export const TurnEnd = {
   Continue: "continue",
   /** An open Loop's lead whose turn worked: woken again at once to go on, whatever else is at work. */
   CarryOn: "carry_on",
+  /** A turn that failed: the lead is woken again at once, up to `FAILED_TURNS_BEFORE_WRAP` in a row. */
+  Retry: "retry",
 } as const;
 export type TurnEnd = (typeof TurnEnd)[keyof typeof TurnEnd];
 
@@ -166,6 +170,12 @@ export const MAX_WAKES_PER_HOUR = 30;
 export const WAKE_WINDOW_MS = HOUR_MS;
 /** A wrap-up turn ends this long before the run's end, and so does a pass it asks for. */
 export const WRAP_UP_MARGIN_MS = 30 * SECOND_MS;
+/**
+ * Failed turns in a row before the run wraps up. One failed turn used to land a half-built game:
+ * a reply the output limit cut ended the lead's turn, the turn ended the wake loop, and the run
+ * closed with every worker stopped. A lead that keeps failing still wraps up.
+ */
+export const FAILED_TURNS_BEFORE_WRAP = 3;
 
 /** A line of the run's log as the waker reads it. */
 export interface WakeLine {
@@ -352,6 +362,8 @@ export interface TurnFacts {
   worked?: boolean;
   /** The Loop runs until a reviewer accepts its finish (an open Loop's ∞), not for its hours (absent: no). */
   untilFinish?: boolean;
+  /** The lead's turns that failed in a row before this one: the allowance is spent at `FAILED_TURNS_BEFORE_WRAP`. */
+  failedTurns?: number;
 }
 
 /** What the loop does next, whether the idle question has been asked, and why a wrap-up starts. */
@@ -372,11 +384,11 @@ const busy = (turn: TurnFacts): boolean => turn.running > 0 || turn.planWindowOp
  * work (news reaches a working lead mid-turn), and the question is not spent on it; under ∞
  * (`untilFinish`) an idle lead rests until something happens, since only a reviewer's yes or its
  * hours end that Loop.
- * Out of working time — or asked by the user to finish — it wraps up; a failed turn does too,
- * unless a lost provider failed it: then the run closes paused, and no wrap-up lands a build. Asked
- * to finish while workers end the rounds they are in, it rests until the last one lands, as a
- * failed turn does then too: a wrap-up now would stop them mid-round. A turn its own cap cut short
- * (an open Loop's) is no failure: the lead goes on at once.
+ * Out of working time — or asked by the user to finish — it wraps up; so does a lead that has
+ * failed `FAILED_TURNS_BEFORE_WRAP` turns in a row, unless a lost provider failed them: then the
+ * run closes paused, and no wrap-up lands a build. A failed turn with allowance left is asked
+ * again at once — one cut-off reply or one engine error is no reason to stop the whole run. A turn
+ * its own cap cut short (an open Loop's) is no failure: the lead goes on at once.
  */
 export function afterTurn(turn: TurnFacts): TurnVerdict {
   if (turn.closed || turn.providerLost === true) return { next: TurnEnd.Close, idleAsked: turn.idleAsked };
@@ -386,7 +398,7 @@ export function afterTurn(turn: TurnFacts): TurnVerdict {
     return { next: TurnEnd.WrapUp, idleAsked: turn.idleAsked, wrapCause };
   }
   if (turn.capped === true) return { next: TurnEnd.Continue, idleAsked: false };
-  if (!turn.ok) return { next: TurnEnd.WrapUp, idleAsked: turn.idleAsked, wrapCause: WrapCause.Failed };
+  if (!turn.ok) return failedTurnVerdict(turn);
   // A lead that builds by itself rests only after a turn that did nothing: its workers' and jobs' news reaches it mid-turn.
   if (turn.worked === true) return { next: TurnEnd.CarryOn, idleAsked: false };
   if (busy(turn)) return { next: TurnEnd.Sleep, idleAsked: false };
@@ -394,6 +406,16 @@ export function afterTurn(turn: TurnFacts): TurnVerdict {
   if (turn.artDirectionOwed === true) return { next: TurnEnd.ArtDirection, idleAsked: true };
   if (turn.untilFinish === true) return { next: TurnEnd.Sleep, idleAsked: true };
   return { next: TurnEnd.WrapUp, idleAsked: true, wrapCause: WrapCause.Idle };
+}
+
+/**
+ * A turn that failed: wrap up once failures pile up (`FAILED_TURNS_BEFORE_WRAP`), else ask it again
+ * at once — one cut-off reply or one engine error is no reason to stop the whole run.
+ */
+function failedTurnVerdict(turn: TurnFacts): TurnVerdict {
+  if ((turn.failedTurns ?? 0) >= FAILED_TURNS_BEFORE_WRAP)
+    return { next: TurnEnd.WrapUp, idleAsked: turn.idleAsked, wrapCause: WrapCause.Failed };
+  return { next: TurnEnd.Retry, idleAsked: turn.idleAsked };
 }
 
 /** The clocks a pass is held to. */

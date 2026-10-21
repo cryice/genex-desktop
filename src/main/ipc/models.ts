@@ -23,12 +23,18 @@ const REFRESHABLE: ReadonlySet<string> = new Set([
   EngineId.Codex,
   EngineId.OpenCode,
   EngineId.OpenRouter,
+  EngineId.DeepSeek,
   EngineId.LocalServer,
 ]);
 /** The engines with no subscription sign-in: a recheck reads their models (and status) again. */
-const RECHECKED_BY_MODELS: readonly string[] = [EngineId.OpenCode, EngineId.OpenRouter, EngineId.LocalServer];
+const RECHECKED_BY_MODELS: readonly string[] = [
+  EngineId.OpenCode,
+  EngineId.OpenRouter,
+  EngineId.DeepSeek,
+  EngineId.LocalServer,
+];
 
-/** An engine whose API key is pasted in Settings (OpenRouter). */
+/** An engine whose API key is pasted in Settings (OpenRouter, DeepSeek). */
 interface ApiKeyEngine {
   saveKey(value: unknown): Promise<EngineStatus>;
   clearKey(): Promise<EngineStatus>;
@@ -42,6 +48,7 @@ const isApiKeyEngine = (engine: unknown): engine is ApiKeyEngine =>
 const MESSAGE = {
   unknownProvider: "Unknown coding provider",
   noKeyEngine: "OpenRouter is unavailable",
+  noDeepSeekEngine: "DeepSeek is unavailable",
   noLocalServer: "Local servers are unavailable",
   bonsaiUnavailable: "Bonsai runtime is unavailable",
   noModel: "Name the model to delete",
@@ -76,6 +83,7 @@ export function registerModelsIpc(
     return true;
   });
   registerApiKeyIpc(handle, { core, pushUiEvent, openRouterLogin });
+  registerDeepSeekKeyIpc(handle, { core, pushUiEvent });
   registerLocalServerIpc(handle, { core, pushUiEvent });
   // The composer's plan limits: every signed-in subscription, read without starting a turn.
   handle("studio:provider-usage", async () => {
@@ -166,6 +174,13 @@ export function registerModelsIpc(
   });
 }
 
+/** The engine that holds a pasted key, or a failure naming the provider as unavailable. */
+function pastedKeyEngine(core: ModelsIpcDeps["core"], id: string, unavailable: string): ApiKeyEngine {
+  const engine = core.engines.has(id) ? core.engines.get(id) : null;
+  if (!isApiKeyEngine(engine)) throw new Error(unavailable);
+  return engine;
+}
+
 /**
  * The OpenRouter key, pasted or got by the browser sign-in: checked with OpenRouter, kept in the OS
  * secret store, never sent back.
@@ -174,11 +189,7 @@ function registerApiKeyIpc(
   handle: IpcHandle,
   { core, pushUiEvent, openRouterLogin }: Pick<ModelsIpcDeps, "core" | "pushUiEvent" | "openRouterLogin">,
 ): void {
-  const keyEngine = (): ApiKeyEngine => {
-    const engine = core.engines.has(EngineId.OpenRouter) ? core.engines.get(EngineId.OpenRouter) : null;
-    if (!isApiKeyEngine(engine)) throw new Error(MESSAGE.noKeyEngine);
-    return engine;
-  };
+  const keyEngine = (): ApiKeyEngine => pastedKeyEngine(core, EngineId.OpenRouter, MESSAGE.noKeyEngine);
   handle("studio:openrouter.key.save", async (payload) => {
     const status = await keyEngine().saveKey(payload?.key);
     pushUiEvent({ type: UiEvent.EnginesChanged, payload: { engine: EngineId.OpenRouter } });
@@ -197,6 +208,27 @@ function registerApiKeyIpc(
   });
   handle("studio:openrouter.signin.reopen", async () => openRouterLogin.reopen());
   handle("studio:openrouter.signin.cancel", async () => openRouterLogin.cancel());
+}
+
+/**
+ * The DeepSeek key, pasted in Settings: checked with DeepSeek, kept in the OS secret store, never
+ * sent back. DeepSeek has no browser sign-in, so there are only these two channels.
+ */
+function registerDeepSeekKeyIpc(
+  handle: IpcHandle,
+  { core, pushUiEvent }: Pick<ModelsIpcDeps, "core" | "pushUiEvent">,
+): void {
+  const keyEngine = (): ApiKeyEngine => pastedKeyEngine(core, EngineId.DeepSeek, MESSAGE.noDeepSeekEngine);
+  handle("studio:deepseek.key.save", async (payload) => {
+    const status = await keyEngine().saveKey(payload?.key);
+    pushUiEvent({ type: UiEvent.EnginesChanged, payload: { engine: EngineId.DeepSeek } });
+    return status;
+  });
+  handle("studio:deepseek.key.clear", async () => {
+    const status = await keyEngine().clearKey();
+    pushUiEvent({ type: UiEvent.EnginesChanged, payload: { engine: EngineId.DeepSeek } });
+    return status;
+  });
 }
 
 /**

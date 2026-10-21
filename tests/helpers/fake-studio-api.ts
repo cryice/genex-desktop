@@ -127,6 +127,8 @@ const METHODS = [
   "openRouterSignIn",
   "openRouterSignInReopen",
   "openRouterSignInCancel",
+  "deepSeekKeySave",
+  "deepSeekKeyClear",
   "localServerConnect",
   "localServerForget",
   "localServerFind",

@@ -153,6 +153,8 @@ export const STUDIO_INVOKE_CHANNELS = {
   "studio:openrouter.signin": "openRouterSignIn",
   "studio:openrouter.signin.reopen": "openRouterSignInReopen",
   "studio:openrouter.signin.cancel": "openRouterSignInCancel",
+  "studio:deepseek.key.save": "deepSeekKeySave",
+  "studio:deepseek.key.clear": "deepSeekKeyClear",
   "studio:local-server.connect": "localServerConnect",
   "studio:local-server.forget": "localServerForget",
   "studio:local-server.find": "localServerFind",
@@ -416,6 +418,8 @@ export interface StudioInvokePayloads {
   "studio:openrouter.signin": undefined;
   "studio:openrouter.signin.reopen": undefined;
   "studio:openrouter.signin.cancel": undefined;
+  "studio:deepseek.key.save": { key: string };
+  "studio:deepseek.key.clear": undefined;
   "studio:local-server.connect": { url: string; key?: string };
   "studio:local-server.forget": undefined;
   "studio:local-server.find": undefined;

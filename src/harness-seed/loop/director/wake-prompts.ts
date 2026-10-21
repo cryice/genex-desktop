@@ -185,6 +185,7 @@ export const REASON_WORDS = {
   [WakeCause.ShipLook]: "the art director's regular look at the whole game",
   [WakeCause.TurnCap]: "your turn reached its cap",
   [WakeCause.CarryOn]: "your turn ended; carry on",
+  [WakeCause.TurnFailed]: "your last turn failed and is asked again — do less in one turn, then end it",
 } as const satisfies Record<WakeReason, string>;
 
 /** The one line a finish request adds to the user's part of a digest. */

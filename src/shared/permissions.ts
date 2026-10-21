@@ -80,7 +80,7 @@ interface EnginePermissions {
  * Each engine's row. Claude Code asks mid-turn in every mode. Bonsai's tools run in the studio,
  * which asks before each edit or command; its commands always run in the studio's sandbox, so it
  * has no Bypass. Codex (`codex exec`) cannot ask mid-turn: Auto keeps its sandbox, Plan only reads,
- * Bypass drops its sandbox. OpenRouter's and a local server's tools run in the studio's own session
+ * Bypass drops its sandbox. OpenRouter's, DeepSeek's and a local server's tools run in the studio's own session
  * loop, as Bonsai's do.
  * OpenCode (`opencode run`) cannot ask mid-turn and always runs in the studio's sandbox: Auto, or Plan
  * (read only). Any other engine (Ollama, whose tools run in the harness, or one added later) keeps its
@@ -97,6 +97,10 @@ const ENGINE_PERMISSIONS: Readonly<Record<string, EnginePermissions>> = {
     withheld: UnavailableModeReason.CannotAsk,
   },
   [EngineId.OpenRouter]: {
+    modes: [PermissionMode.Auto, PermissionMode.Manual, PermissionMode.AcceptEdits, PermissionMode.Plan],
+    withheld: UnavailableModeReason.AlwaysSandboxed,
+  },
+  [EngineId.DeepSeek]: {
     modes: [PermissionMode.Auto, PermissionMode.Manual, PermissionMode.AcceptEdits, PermissionMode.Plan],
     withheld: UnavailableModeReason.AlwaysSandboxed,
   },
