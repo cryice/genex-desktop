@@ -93,8 +93,11 @@ export const FACT_ID = /^[a-z][a-z0-9-]{0,39}$/;
 /** Whether `value` is a well-formed fact id. */
 export const isFactId = (value: unknown): value is string => typeof value === "string" && FACT_ID.test(value);
 
-/** Where Genex never looks for a web game: build output, dependencies and vendored copies. */
-const NOT_A_WEB_GAME = ["**/node_modules/", "**/dist/", "**/build/", "**/out/", "**/vendor/"];
+/**
+ * Where Genex never looks for a web game: build output, dependencies, vendored copies and Unity's
+ * WebGL templates, whose index.html is a page Unity fills in at build time, not a game.
+ */
+const NOT_A_WEB_GAME = ["**/node_modules/", "**/dist/", "**/build/", "**/out/", "**/vendor/", "**/WebGLTemplates/"];
 
 /** The kinds Genex knows by their files, before any plugin. */
 export const CORE_FACT_RULES: readonly FactRule[] = [

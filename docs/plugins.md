@@ -3077,7 +3077,9 @@ Genex:
   (`native.supported`, `gateByPlugin`): a profile still on a plugin from before apps is told to
   update it in Plugins. The plugin's `publishing-apps` skill tells the game's agent how to build an
   app or a web version (in `web/`) for Publish, how to make an app open in a window, and never to
-  send the person to another store.
+  send the person to another store. A Unity web version is built from a full-window template the
+  agent writes in `Assets/WebGLTemplates/Genex/`: Unity's own templates draw a fixed 960x600 box.
+  A `WebGLTemplates/` folder is never taken for the game's web version (`NOT_A_WEB_GAME`).
   A game with no web build but a ready app (an Unreal or Unity game built for the Mac) gets Publish
   on the strip too (`stripEntries`' `apps`, read through the same channel); its press says "Publish
   Mac app" and runs `studio:plugins.genex-publish-apps` (`publishAppsFromDialog`, no web copy, no

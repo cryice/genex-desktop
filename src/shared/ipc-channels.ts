@@ -63,6 +63,9 @@ export const STUDIO_INVOKE_CHANNELS = {
   "studio:game.archive": "archiveGame",
   "studio:storage": "storageSpace",
   "studio:storage.free": "freeStorage",
+  "studio:data-folder": "dataFolder",
+  "studio:data-folder.choose": "chooseDataFolder",
+  "studio:data-folder.move": "moveDataFolder",
   "studio:game.engine.undo": "undoEngineLink",
   "studio:jobs.stop": "stopJob",
   "studio:app-look.open-settings": "openPrivacySettings",
@@ -329,6 +332,9 @@ export interface StudioInvokePayloads {
   "studio:game.archive": { project: string };
   "studio:storage": { project?: string };
   "studio:storage.free": { project?: string };
+  "studio:data-folder": undefined;
+  "studio:data-folder.choose": undefined;
+  "studio:data-folder.move": undefined;
   "studio:game.engine.undo": Arg<"undoEngineLink", 0>;
   "studio:jobs.stop": { project: string; jobId: string };
   "studio:app-look.open-settings": { pane: Arg<"openPrivacySettings", 0> };
