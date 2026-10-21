@@ -222,6 +222,7 @@ function playCalls(bridge: BridgeCalls) {
     playInstallCancel: (slug) => invoke("studio:play.install-cancel", { slug }),
     playInstalls: () => invoke("studio:play.installs"),
     playUninstall: (slug) => invoke("studio:play.uninstall", { slug }),
+    playForgetIdentity: (slug) => invoke("studio:play.forget-identity", { slug }),
     playLaunch: (slug) => invoke("studio:play.launch", { slug }),
     playSession: (slug, action) => invoke("studio:play.session", { slug, action }),
     playSessions: () => invoke("studio:play.sessions"),

@@ -3146,6 +3146,12 @@ export const INSTALLED_GAMES_WORDS = {
   },
   remove: "Remove",
   savesStay: "Saves stay when you remove a game. Getting it again starts where you left off.",
+  /** The row of a game the player let know who they are (App Review 4.7.3), and how to take it back. */
+  knowsYou: "Knows who you are",
+  stopSharing: "Stop sharing",
+  stopSharingLabel: (title: string) => `Stop sharing who you are with ${title}`,
+  stopped: (title: string) => `${title} no longer knows who you are. It asks again next time you play.`,
+  stopFailed: "Couldn't stop sharing who you are. Try again in a moment.",
 } as const;
 
 /** The Publish dialog's platform rows (`panels/plugins/genex/PublishPlatforms.tsx`). */

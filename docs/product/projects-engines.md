@@ -43,8 +43,8 @@ Godot 4.3+, Mac only (on Windows, Get Godot opens its download page): makes a **
 project** links one. `web/` plays in Live; **Multiplayer** joins web, native.
 
 **Roblox Studio** sets up your Studio; **New Roblox game** writes a Baseplate place, **Use in this
-game** links one per game. Unity sets up and opens its project; agents add packages, build and
-play (keys, mouse: Input System). Publish lists Web, Mac and Windows builds.
+game** links one per game. Unity sets up and opens its project; agents add packages,
+**Multiplayer**, build, play (keys, mouse: Input System). Publish lists Web, Mac and Windows builds.
 
 ## Live's views
 

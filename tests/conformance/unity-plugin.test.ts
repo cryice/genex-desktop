@@ -70,7 +70,10 @@ describe("the bundled Unity plugin", () => {
     ]);
     assert.deepEqual(
       unity.skills.map((skill) => [skill.name, skill.facts]),
-      [["unity-editor", [CoreFact.UnityProject]]],
+      [
+        ["unity-multiplayer", [CoreFact.UnityProject]],
+        ["unity-editor", [CoreFact.UnityProject]],
+      ],
     );
     const tool = (name: string) => unity.tools.find((declared) => declared.name === name);
     assert.equal(tool(UnityTool.FindProject)?.audience, "harness", "only Genex runs it");
@@ -91,6 +94,7 @@ describe("the bundled Unity plugin", () => {
         [HookEvent.TurnStart, UnityTool.FindProject],
         [HookEvent.RunPrepare, UnityTool.FindProject],
         [HookEvent.RunPrepare, UnityTool.OpenForRun],
+        [HookEvent.RunEnd, UnityTool.AfterRun],
         [HookEvent.CheckpointBefore, UnityTool.SaveAll],
         [HookEvent.CheckpointAfter, UnityTool.SceneShots],
         [HookEvent.RestoreBefore, UnityTool.SaveAll],
@@ -272,10 +276,13 @@ describe("the bundled Unity plugin", () => {
         [
           "unity__new-game",
           "unity__show-steps",
+          "unity__multiplayer",
           "unity__setup",
           "unity__undo-setup",
           "unity__open-editor",
           "unity__restart-editor",
+          // Its file skill (unity-multiplayer) is read through the synthetic skill tool.
+          "unity__skill",
         ],
         "a Unity project's sessions get its tools, and none of Genex's own (find-project, save-all, editor-state…)",
       );
