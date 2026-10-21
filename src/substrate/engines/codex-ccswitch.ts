@@ -537,6 +537,11 @@ export async function readCcswitchConfig(
 
 // ── the launch ────────────────────────────────────────────────────────────────────────────────────
 
+/** A `-c` value as a TOML basic string: quoted, so a name with spaces stays one value. */
+function tomlString(value: string): string {
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
 /**
  * The provider as CLI overrides, beside the engine's `--ignore-user-config`: the selection, its
  * address, its wire protocol, and the env var the key will be in. `requires_openai_auth` is
@@ -547,6 +552,10 @@ export function ccswitchProviderArgs(provider: CcswitchProvider): string[] {
   return [
     "-c",
     `model_provider=${provider.id}`,
+    "-c",
+    // The CLI refuses a provider whose name is empty, and `--ignore-user-config` means this
+    // override is the only place that name can come from: the file's own `name`, else the id.
+    `model_providers.${provider.id}.name=${tomlString(provider.name ?? provider.id)}`,
     "-c",
     `model_providers.${provider.id}.base_url=${provider.baseUrl}`,
     "-c",

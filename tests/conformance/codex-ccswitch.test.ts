@@ -443,6 +443,8 @@ describe("the launch the provider is handed", () => {
       "-c",
       "model_provider=custom",
       "-c",
+      'model_providers.custom.name="My Codex"',
+      "-c",
       "model_providers.custom.base_url=https://api.kytok.xyz/v1",
       "-c",
       "model_providers.custom.wire_api=responses",
@@ -451,6 +453,13 @@ describe("the launch the provider is handed", () => {
       "-c",
       "model_providers.custom.requires_openai_auth=false",
     ]);
+  });
+
+  it("a provider without a name falls back to its id: the CLI refuses an empty one", () => {
+    // `--ignore-user-config` means the name can only arrive as this override; an empty value is
+    // the CLI's `provider name must not be empty`, which fails the whole turn.
+    const args = ccswitchProviderArgs({ ...PROVIDER, name: null });
+    assert.ok(args.includes('model_providers.custom.name="custom"'));
   });
 
   it("chat wire api is passed through", async () => {
