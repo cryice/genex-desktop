@@ -313,6 +313,7 @@ describe("genex__cover", () => {
         },
       ]);
       assert.deepEqual(await filesUnder(fx.storage), [
+        `covers/${PROJECT}/agent.json`,
         `covers/${PROJECT}/candidates.json`,
         `covers/${PROJECT}/candidates/${sha256(png("first"))}.png`,
         `covers/${PROJECT}/shot.json`,
@@ -1011,7 +1012,11 @@ describe("a shot taken while a send runs", () => {
       assert.deepEqual(fx.seen.puts.at(-1), png("third"));
       const left = await filesUnder(path.join(fx.host, "covers", PROJECT));
       const beside = left.filter((name) => !name.startsWith("candidates"));
-      assert.deepEqual(beside, ["sent.json", "shot.json", "shot.png"], "no copy of a sent frame is left behind");
+      assert.deepEqual(
+        beside,
+        ["agent.json", "sent.json", "shot.json", "shot.png"],
+        "no copy of a sent frame is left behind",
+      );
     } finally {
       await fx.close();
     }
@@ -1272,6 +1277,65 @@ const recording = (tag: string, motion = 0.6) => ({
     poster: Buffer.from(`poster of ${tag}`),
     motion,
   },
+});
+
+describe("which frames the agent took itself", () => {
+  it("reports when the agent last kept a shot and a clip; Studio's own takes leave those times", async () => {
+    const { genex, clock, dir } = await localGenex();
+    const agentAt = new Date(clock.now).toISOString();
+    await genex.coverShoot(
+      PROJECT,
+      camera(() => still("agent")),
+    );
+    await genex.coverClip(PROJECT, { ...camera(() => still("x")), record: async () => recording("agent") });
+    assert.deepEqual((await genex.publishView(PROJECT)).cover?.agentTook, { shot: agentAt, clip: agentAt });
+
+    clock.now += COVER_AUTO_GAP_MS;
+    const lens = {
+      ...twoViewCamera(
+        () => still("studio"),
+        () => still("plain"),
+      ),
+      record: async () => recording("studio"),
+    };
+    const auto = await genex.coverAuto(PROJECT, lens);
+    assert.equal(auto.cover?.shot?.sha256, sha256(png("studio")), "Studio's take is the kept shot now");
+    assert.equal(auto.cover?.clip?.sha256, sha256(webm("studio")), "and its clip the kept clip");
+    assert.deepEqual(auto.cover?.agentTook, { shot: agentAt, clip: agentAt }, "the agent's times stand");
+
+    clock.now += 1000;
+    await genex.coverShoot(
+      PROJECT,
+      camera(() => noDemo),
+    );
+    await genex.coverClip(PROJECT, {
+      ...camera(() => still("x")),
+      record: async () => ({ clipProblem: { code: "view_unknown" } }),
+    });
+    assert.deepEqual(
+      (await genex.publishView(PROJECT)).cover?.agentTook,
+      { shot: agentAt, clip: agentAt },
+      "a shot or clip that kept nothing is no new time",
+    );
+    for (const hostile of ["{", "[]", '{"shot":7,"clip":"soon"}', '{"shot":"2026-10-16T12:00:00.000Z","extra":1}']) {
+      await writeFile(path.join(dir, "agent.json"), hostile);
+      const read = (await genex.publishView(PROJECT)).cover?.agentTook;
+      const sound = hostile.includes('"shot":"') ? { shot: "2026-10-16T12:00:00.000Z" } : {};
+      assert.deepEqual(read, sound, hostile);
+    }
+  });
+
+  it("says nothing of the agent before it took any", async () => {
+    const { genex } = await localGenex();
+    await genex.coverAuto(
+      PROJECT,
+      twoViewCamera(
+        () => still("studio"),
+        () => still("plain"),
+      ),
+    );
+    assert.deepEqual((await genex.publishView(PROJECT)).cover?.agentTook, {});
+  });
 });
 
 describe("the cover clip", () => {

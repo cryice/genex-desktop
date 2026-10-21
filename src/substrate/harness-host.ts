@@ -144,6 +144,12 @@ export interface HarnessHostOptions {
   sandbox: ProcessSandbox;
   api: SubstrateApi;
   updatesDir: string;
+  /**
+   * Folder for Node's compile cache of the harness's modules, writable inside the sandbox. A boot
+   * then reuses the type-stripped, compiled seed instead of redoing it; entries are keyed by each
+   * file's content, so the agent's edits are compiled afresh.
+   */
+  compileCache?: string;
   env?: Record<string, string>;
   onNotify?: (type: string, payload: unknown) => void;
   onLog?: (line: string, stream: "stdout" | "stderr") => void;
@@ -293,6 +299,9 @@ export class HarnessHost {
         // 8.3 spelling (C:\Users\RUNNER~1\…) failed the walk with EPERM.
         HARNESS_WS: longPath(this.options.workspace, this.#platform),
         NODE_OPTIONS: "",
+        ...(this.options.compileCache
+          ? { NODE_COMPILE_CACHE: longPath(this.options.compileCache, this.#platform) }
+          : {}),
         ...this.#inbox?.env(),
         ...this.options.env,
       },

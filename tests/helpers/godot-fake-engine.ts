@@ -12,6 +12,7 @@ import type { EditorEnv, Launch } from "../../src/plugins/godot/editor.ts";
 import { BRIDGE_FOLDER } from "../../src/plugins/godot/editor-bridge.ts";
 import type { GodotEnv } from "../../src/plugins/godot/find-godot.ts";
 import type { GodotInstallDeps } from "../../src/plugins/godot/godot-setup.ts";
+import type { ColyseusRelease } from "../../src/plugins/godot/multiplayer.ts";
 import { type GodotCall, GodotJob, type GodotResult, type GodotRunner } from "../../src/plugins/godot/godot-run.ts";
 import { tmpDir } from "./tmp.ts";
 
@@ -19,6 +20,13 @@ import { tmpDir } from "./tmp.ts";
 export const SCRIPTS = path.resolve("src/plugins/godot/scripts");
 export const TEMPLATES = path.resolve("src/plugins/godot/templates");
 export const ADDON = path.resolve("src/plugins/godot/addon/genex");
+/** Genex multiplayer as the plugin ships it: its addon, the SDK's bridge (its licenses a fixture's) and the Colyseus license. */
+export const MULTIPLAYER = {
+  addon: path.resolve("src/plugins/godot/addon/genex_multiplayer"),
+  bridge: path.resolve("node_modules/@genex-ai/multiplayer/dist/bridge.global.js"),
+  bridgeLicenses: path.resolve("tests/fixtures/godot-multiplayer/genex-multiplayer-bridge.LICENSES.md"),
+  license: path.resolve("src/plugins/godot/multiplayer/COLYSEUS-LICENSE"),
+};
 /** Godot 4.6.1's own version line. */
 export const GODOT_461 = "4.6.1.stable.official.14d19694e";
 /** A one-pixel PNG, as a capture saves it. */
@@ -187,6 +195,7 @@ export async function godotBackendFixture(
     game?: string | null;
     editorLines?: string[];
     install?: GodotInstallDeps;
+    release?: ColyseusRelease;
   } = {},
 ) {
   const mac = await fakeMac(options.apps);
@@ -204,6 +213,7 @@ export async function godotBackendFixture(
     scripts: SCRIPTS,
     templates: TEMPLATES,
     addon: ADDON,
+    multiplayer: { ...MULTIPLAYER, ...(options.release ? { release: options.release } : {}) },
     ...(options.install ? { install: options.install } : {}),
   });
   const hostCalls: HostCall[] = [];
