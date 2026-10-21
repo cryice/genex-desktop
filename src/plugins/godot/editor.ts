@@ -99,7 +99,13 @@ export function isEditorOf(line: string, project: string): boolean {
   const words = line.split(/\s+/);
   if (!/godot/i.test(words[0] ?? "") || words.includes("--headless")) return false;
   const opensFolder = namesFolder(line, project) && words.some((word) => EDITOR_FLAGS.has(word));
-  return opensFolder || line.includes(path.join(project, PROJECT_FILE));
+  // A command line is text, so the separator is whatever the machine that printed it used:
+  // Godot on Windows prints backslashes, on mac and Linux forward ones.
+  return (
+    opensFolder ||
+    line.includes(`${project}/${PROJECT_FILE}`) ||
+    line.includes(`${project}\\${PROJECT_FILE}`)
+  );
 }
 
 /** Whether a command line's `--path` is the project's folder itself, not one whose name only starts the same. */
