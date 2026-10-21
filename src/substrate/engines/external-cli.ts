@@ -12,6 +12,7 @@ import {
   isWindowsRunnable,
   pathDelimiter,
   readLoginPath,
+  readRegistryPath,
   withEnvPath,
 } from "../toolchain.ts";
 import { commandLaunch, isCommandScript, npmShimScript } from "../command-launch.ts";
@@ -38,6 +39,11 @@ export interface DiscoveryOptions {
   env?: NodeJS.ProcessEnv;
   standardDirs?: string[];
   signal?: AbortSignal;
+  /**
+   * Windows: the machine and user PATH the registry holds now, when the process's own has gone
+   * stale (an app started before the install). Tests stand in for the registry.
+   */
+  registryPath?: () => Promise<string | null>;
   /** The operating system whose file names and launchers apply; the host's by default. */
   platform?: NodeJS.Platform;
 }
@@ -378,23 +384,41 @@ async function entryNames(dir: string): Promise<string[]> {
     return [];
   }
 }
-/** Where the coding CLIs install themselves on Windows, native installers first. */
-function windowsCliDirs(home: string, env: NodeJS.ProcessEnv): string[] {
+/**
+ * Where the coding CLIs install themselves on Windows, native installers first. Two layouts are
+ * found by what is on disk rather than by a fixed name: Codex's desktop app keeps its launcher one
+ * build folder down (`bin\<build>\codex.exe`), and nvm-windows keeps a whole Node — and the global
+ * packages installed under it — in one folder per version (`%NVM_HOME%\v24.2.0\codex.cmd`).
+ */
+async function windowsCliDirs(home: string, env: NodeJS.ProcessEnv): Promise<string[]> {
   const join = path.win32.join;
   const variable = (name: string, fallback: string): string => envValue(env, name) || fallback;
   const appData = variable("APPDATA", join(home, "AppData", "Roaming"));
   const localAppData = variable("LOCALAPPDATA", join(home, "AppData", "Local"));
+  const codexApp = join(localAppData, "OpenAI", "Codex", "bin");
+  const symlink = envValue(env, "NVM_SYMLINK");
   return [
     join(home, ".local", "bin"),
     // Codex's own installer (install.ps1) puts its launcher here and adds it to the user's PATH,
     // which a Studio already running never sees.
     join(localAppData, "Programs", "OpenAI", "Codex", "bin"),
     join(appData, "npm"),
+    // nvm-windows: the live symlink, then every Node it kept, newest first.
+    ...(symlink ? [symlink] : []),
+    ...(await versionsNewestFirst(envValue(env, "NVM_HOME") || join(appData, "nvm"))).map((version) =>
+      join(envValue(env, "NVM_HOME") || join(appData, "nvm"), version),
+    ),
     join(variable("ProgramFiles", "C:\\Program Files"), "nodejs"),
     join(localAppData, "pnpm"),
     join(localAppData, "Volta", "bin"),
     join(home, ".bun", "bin"),
     join(home, "scoop", "shims"),
+    // The ChatGPT app's bundled Codex CLI, last so a copy the person installed always wins: one
+    // hex-named build folder below `bin`.
+    codexApp,
+    ...(await entryNames(codexApp))
+      .filter((build) => /^[0-9a-f]{8,}$/i.test(build))
+      .map((build) => join(codexApp, build)),
   ];
 }
 /** Sort order for `v24.1.0`- and `2.1.286`-style names: the newest version first. */
@@ -460,7 +484,12 @@ export async function discoverCodingCli(
   return { status: first ?? status, env };
 }
 
-/** The folders searched for a CLI: the login shell's PATH, then ours, then the usual install folders. */
+/**
+ * The folders searched for a CLI: the login shell's PATH, the registry's on Windows, then ours,
+ * then the usual install folders. Windows has no login shell, and an app started from Explorer
+ * keeps the PATH Explorer had at logon — a Node installed since then is invisible until the app
+ * restarts. The registry holds what a terminal started now would read.
+ */
 async function cliSearchDirs(
   options: DiscoveryOptions,
   parent: NodeJS.ProcessEnv,
@@ -470,10 +499,14 @@ async function cliSearchDirs(
   const loginPath = options.loginPath ?? (await sharedLoginPath(options, platform));
   options.signal?.throwIfAborted();
   const delimiter = pathDelimiter(platform);
+  const registry = isWindows(platform)
+    ? await (options.registryPath ?? (() => readRegistryPath(parent)))().catch(() => null)
+    : null;
   return [
     ...new Set(
       [
         ...(loginPath ?? "").split(delimiter),
+        ...(registry ?? "").split(delimiter),
         ...(envPath(parent) ?? "").split(delimiter),
         ...(options.standardDirs ?? (await standardCliDirs(home, platform, parent))),
       ].filter((p) => path.isAbsolute(p)),

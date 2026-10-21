@@ -17,7 +17,14 @@ import {
 import { ClaudeCodeEngine } from "../../src/substrate/engines/claude-code.ts";
 import { cliName, writeCliLauncher } from "../helpers/external-cli.ts";
 const root = await mkdtemp(path.join(os.tmpdir(), "studio-external-cli-"));
-const options = { loginPath: "", home: root, env: { PATH: "" }, standardDirs: [], excludedRoots: [] };
+const options = {
+  loginPath: "",
+  home: root,
+  env: { PATH: "" },
+  standardDirs: [],
+  excludedRoots: [],
+  registryPath: async () => null,
+};
 const WINDOWS = process.platform === "win32";
 const FLAGS =
   "--json --output-schema --ignore-user-config --skip-git-repo-check --input-format --output-format --strict-mcp-config --setting-sources --permission-mode --mcp-config --allowedTools --disallowedTools";
@@ -504,7 +511,40 @@ test("Windows standard folders: the native installers first, then npm's prefix a
     "C:\\Users\\Ada\\AppData\\Local\\Volta\\bin",
     "C:\\Users\\Ada\\.bun\\bin",
     "C:\\Users\\Ada\\scoop\\shims",
+    // The ChatGPT app's bundled CLI lives one build folder down, listed last so it never hides a
+    // copy the person installed themselves.
+    "C:\\Users\\Ada\\AppData\\Local\\OpenAI\\Codex\\bin",
   ]);
+});
+test("Windows Node managers: nvm-windows' symlink and each Node it kept are searched, newest first", {
+  skip: !WINDOWS && "nvm-windows folders only exist on a Windows host",
+}, async () => {
+  const nvm = path.join(root, "nvm");
+  for (const version of ["v22.11.0", "v24.2.0"]) {
+    await mkdir(path.join(nvm, version), { recursive: true });
+    await writeFile(path.join(nvm, version, "codex.cmd"), "");
+  }
+  const dirs = await standardCliDirs(root, "win32", {
+    APPDATA: path.join(root, "AppData", "Roaming"),
+    LOCALAPPDATA: path.join(root, "AppData", "Local"),
+    NVM_HOME: nvm,
+    NVM_SYMLINK: path.join(root, "nvm4w", "nodejs"),
+  });
+  assert.deepEqual(
+    dirs.filter((dir) => dir.startsWith(nvm) || dir.includes("nvm4w")),
+    [path.join(root, "nvm4w", "nodejs"), path.join(nvm, "v24.2.0"), path.join(nvm, "v22.11.0")],
+  );
+});
+test("a CLI the registry's PATH names is found even when the process's own PATH predates it", {
+  skip: !WINDOWS && "only Windows reads the registry's PATH",
+}, async () => {
+  const binary = await cli("registry-only/codex");
+  const found = await discoverCodingCli("codex", {
+    ...options,
+    platform: "win32",
+    registryPath: async () => path.dirname(binary),
+  });
+  assert.equal(found.status.path, binary);
 });
 test("on Windows only a PATHEXT name is a CLI: npm's sh launcher and PowerShell shim beside it are skipped", async () => {
   const dir = path.join(root, "pathext");
