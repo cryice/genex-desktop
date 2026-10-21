@@ -16,7 +16,9 @@ preload `helpers/leftover-children.ts` into every test file's process: a file th
 child process running after its own `after` hooks fails by name, instead of never exiting and
 holding a runner slot. Stop what a test starts:
 a core's `stop()` (or core-lite's `close()`), a `ProcessSandbox`'s `dispose()`. On Linux,
-sandbox-runtime's socat bridges run until the last sandbox is disposed.
+sandbox-runtime's socat bridges run until the last sandbox is disposed. Node runs a file's root
+`after` hooks once the tests registered so far have ended, so the check also waits for tests a
+file registers after a top-level await (it follows `node:test`'s `node.test` trace).
 
 Each batch also runs with `TMPDIR`, `TMP` and `TEMP` set to a folder of its own (`/tmp/gt-…` off
 Windows, or in the inherited temp folder where `/tmp` is not writable), removed when the batch

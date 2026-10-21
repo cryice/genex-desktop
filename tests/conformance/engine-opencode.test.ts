@@ -297,6 +297,36 @@ describe("OpenCode sessions", () => {
     assert.deepEqual(seen, [{ brief }]);
   });
 
+  it("explains a silent failure with the CLI's stderr, its terminal colour codes taken out", async () => {
+    const root = await tmpDir("opencode-stderr-");
+    // A stand-in CLI: Node, saying OpenCode's own failure in colour on stderr and no event on stdout.
+    const cli = path.join(root, "cli.cjs");
+    const said =
+      "\\u001b[91m\\u001b[1mError: \\u001b[0mYou must provide a message or a command\\u001b]0;opencode\\u0007";
+    await writeFile(cli, `process.stderr.write("${said}\\n"); process.exitCode = 1;\n`);
+    const sandbox = await ProcessSandbox.create({
+      writableRoots: [root],
+      scratchDir: path.join(root, "scratch"),
+      secretPaths: [],
+      enabled: false,
+    });
+    const invocation = {
+      argv: [cli],
+      cwd: root,
+      prompt: "",
+      env: {},
+      signal: new AbortController().signal,
+      domains: [],
+    };
+    try {
+      await assert.rejects(async () => {
+        for await (const _event of openCodeEvents(sandbox, process.execPath, invocation));
+      }, new Error("Error: You must provide a message or a command"));
+    } finally {
+      await sandbox.dispose();
+    }
+  });
+
   it("builds from the prompt on stdin, mirrors every event, and adds up the run's tokens and price", async () => {
     const { engine, seen } = await engineWith(async function* () {
       yield* replay(await events("opencode-run-1.18.jsonl"));
