@@ -70,6 +70,11 @@ describe("the core table", () => {
         ["index.html", "dist/index.html", "node_modules/x/index.html", "docs/index.html"],
         ["web-game@."],
       ],
+      [
+        "a Unity game's own WebGL template beside its web build",
+        ["unity/Assets/WebGLTemplates/Genex/index.html", "unity/ProjectSettings/ProjectVersion.txt", "web/index.html"],
+        ["unity-project@unity", "web-game@web"],
+      ],
       ["a Godot project", ["project.godot", "scenes/main.tscn"], ["godot-project@."]],
       ["nothing a kind is known by", ["README.md", "idea.txt"], []],
     ];

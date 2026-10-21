@@ -226,6 +226,8 @@ export class GamePreview {
   #closed = false;
   #observed = false;
   #renderingVisible = true;
+  /** The most frames a second the page draws (`live-pace.ts`), 0 for the display's rate. */
+  #maxFps = 0;
   /** Whether the speakers are off: from the start for an agent's window, as `setAudioMuted` says for Live. */
   #audioMuted: boolean;
   #requestedBounds: Electron.Rectangle | null = null;
@@ -495,10 +497,19 @@ export class GamePreview {
     this.#syncAnimationVisibility();
   }
 
+  /** Pace the page's frames to at most `fps` a second; 0 for the display's own rate. */
+  setMaxFps(fps: number): void {
+    if (this.#maxFps === fps) return;
+    this.#maxFps = fps;
+    this.#syncAnimationVisibility();
+  }
+
   #syncAnimationVisibility(): void {
     const wc = this.#view?.webContents;
     if (!wc || wc.isDestroyed()) return;
-    void wc.executeJavaScript(`window.__studioAnimation?.setVisible(${this.#renderingVisible})`).catch(() => {});
+    const animation = `window.__studioAnimation`;
+    const script = `${animation}?.setVisible(${this.#renderingVisible});${animation}?.setMaxFps?.(${this.#maxFps})`;
+    void wc.executeJavaScript(script).catch(() => {});
   }
 
   /** Live's speakers: the page keeps playing, and its audio graph keeps running, either way. */

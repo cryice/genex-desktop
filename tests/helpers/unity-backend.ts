@@ -47,6 +47,8 @@ export interface BackendOptions {
   ends?: Record<number, NodeJS.Signals[]>;
   /** How long since the person last touched the keyboard or pointer; ten minutes (nobody there) unless said. */
   idleMs?: () => number | undefined;
+  /** The plugin's settings as the host reads them; none stored unless said. */
+  settings?: Record<string, unknown>;
 }
 
 /**
@@ -55,7 +57,7 @@ export interface BackendOptions {
  * (unless `starts` is false); the editor's server answers with `replies`.
  */
 export async function backendOn(versions: string[], replies: Reply[] = [], options: BackendOptions = {}) {
-  const { starts = true, now = NOW, ends, idleMs = () => 10 * 60_000 } = options;
+  const { starts = true, now = NOW, ends, idleMs = () => 10 * 60_000, settings = {} } = options;
   const { env, editors } = await mac(versions);
   const table = processTable([], ends);
   const stand = standInEditor(replies, { alive: (pid) => table.running().includes(pid) });
@@ -82,7 +84,7 @@ export async function backendOn(versions: string[], replies: Reply[] = [], optio
     },
   });
   const context = (binding: Partial<PluginContext> = { project: "lantern", directory: game }) =>
-    pluginContext(storage, binding);
+    pluginContext(storage, binding, settings);
   const call = (tool: string, binding?: Partial<PluginContext>) => backend.tool?.(tool, {}, context(binding));
   /** One of the panel's actions, with whatever arguments a panel sends. */
   const act = (action: string, args: Record<string, unknown> = {}, binding?: Partial<PluginContext>) =>

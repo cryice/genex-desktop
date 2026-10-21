@@ -75,6 +75,7 @@ import { LiveGate, type LiveOffer } from "./live-gate.ts";
 import type { LiveBehindEvent } from "../../shared/live-behind.ts";
 import type { GameSoundRequest } from "../../shared/game-sound.ts";
 import { liveAudible, type LiveSound } from "../game-sound.ts";
+import { liveMaxFps } from "../live-pace.ts";
 
 /** The most cameras one capture photographs. */
 const MAX_CAPTURE_CAMERAS = 8;
@@ -552,15 +553,21 @@ export class PreviewService {
     this.#updateVisibility();
   }
 
-  #updateVisibility(): void {
+  /** Whether an agent looks at Live: a session lent it, or a run's harness looks through it. */
+  #liveObserved(): boolean {
     // A run's harness looks through Live only where this build opens no hidden windows
     // (`harnessWindow`); elsewhere it has the stand-in, and a hidden Live rests during a run.
     const runLooksAtLive = this.#x.activeRunIds.size > 0 && !this.#core.options.createHeadlessPreview;
-    const observed = this.#liveObservers > 0 || runLooksAtLive;
+    return this.#liveObservers > 0 || runLooksAtLive;
+  }
+
+  #updateVisibility(): void {
+    const observed = this.#liveObserved();
     const preview = this.#optionalPreview();
     preview?.setObserved?.(observed);
     preview?.setVisible?.(this.#stageVisible || observed);
     this.#applySound();
+    this.#applyPace();
   }
 
   /** The user's switch. */
@@ -573,12 +580,19 @@ export class PreviewService {
   setForeground(foreground: boolean): void {
     this.#sound = { ...this.#sound, foreground };
     this.#applySound();
+    this.#applyPace();
   }
 
   /** Live is heard only while it is the user's own game, on screen, in front, with the switch on. */
   #applySound(): void {
     const lent = this.#liveObservers > 0;
     this.#optionalPreview()?.setAudioMuted?.(!liveAudible({ ...this.#sound, lent, shown: this.#stageVisible }));
+  }
+
+  /** Live draws at the display's rate while Genex is in front or an agent looks at it, slower behind another app. */
+  #applyPace(): void {
+    const pace = { foreground: this.#sound.foreground, observed: this.#liveObserved() };
+    this.#optionalPreview()?.setMaxFps?.(liveMaxFps(pace));
   }
 
   /**

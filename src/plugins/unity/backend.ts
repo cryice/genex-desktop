@@ -13,8 +13,10 @@
  *   take it back out (`setup.ts`); the person confirms each.
  * - `open-editor` and `restart-editor`: open the game's project in the Unity it was saved with
  *   (`editor-open.ts`), or end a stalled editor first; the person confirms a restart.
- * - `save-all`, `end-editor`, `reopen-editor`, `editor-state`, `open-for-run`, `scene-shots` and
- *   `editor-activity`: the steps at Genex's moments and the editor lock's probe (`editor-moments.ts`).
+ * - `save-all`, `end-editor`, `reopen-editor`, `editor-state`, `open-for-run`, `after-run`,
+ *   `scene-shots` and `editor-activity`: the steps at Genex's moments and the editor lock's probe
+ *   (`editor-moments.ts`). Once a run ended, the backend looks every half minute for an editor Genex
+ *   opened for a run that nobody uses any more, and closes it (`editor-idle.ts`).
  *
  * The person reaches the same project through the plugin's panel and its toolbar button, whose
  * actions answer in codes the panel words itself: `status` and `toolbar-status` only look
@@ -35,7 +37,9 @@ import type { Activate, PluginActivation, PluginContext } from "../../plugin-sdk
 import { getUnityLaunch, systemOpener, UnitySource } from "./editor-launch.ts";
 import { createComputerPlay } from "./computer-play.ts";
 import { endEditor, firstSetup } from "./editor-life.ts";
+import { CLOSE_IDLE_SETTING, closeIdleEditors, IDLE_LOOK_MS } from "./editor-idle.ts";
 import {
+  afterRun,
   editorActivity,
   editorState,
   endForRestore,
@@ -66,7 +70,11 @@ import { readFacts, SetupAction, setupCard, skippedCard } from "./setup-steps.ts
 import { createInstaller, type InstallDeps, type Installer, systemInstallDeps } from "./unity-install.ts";
 
 /** The host services this backend calls, by their public SDK names. */
-const HostService = { StorageRoot: "storage.root", EngineSteps: "game.engine.steps" } as const;
+const HostService = {
+  StorageRoot: "storage.root",
+  EngineSteps: "game.engine.steps",
+  SettingsRead: "settings.read",
+} as const;
 
 /** The plugin's tools, by the names its manifest declares. Wire values: never rename one. */
 export const UnityTool = {
@@ -82,6 +90,7 @@ export const UnityTool = {
   ReopenEditor: "reopen-editor",
   EditorState: "editor-state",
   OpenForRun: "open-for-run",
+  AfterRun: "after-run",
   SceneShots: "scene-shots",
   EditorActivity: "editor-activity",
   ShowSteps: "show-steps",
@@ -119,7 +128,44 @@ const isUnityAction = (name: string): name is UnityAction => (Object.values(Unit
  * editor's network and the computer's processes, and what installing Unity for the person reaches
  * (this computer's own unless a test stands in).
  */
-export type UnityBackendDeps = MomentDeps & { install?: InstallDeps };
+export type UnityBackendDeps = MomentDeps & {
+  install?: InstallDeps;
+  /** Runs `look` every `ms` until the backend ends; this computer's timer unless a test stands in. */
+  every?: (look: () => void, ms: number) => void;
+};
+
+/** This computer's timer, which never by itself keeps the backend running. */
+const systemEvery = (look: () => void, ms: number): void => {
+  setInterval(look, ms).unref();
+};
+
+/** Whether the person left closing an idle editor on: it is on unless the setting reads false. */
+async function closeIdleOn(context: PluginContext): Promise<boolean> {
+  const settings = await context.host(HostService.SettingsRead).catch(() => ({}) as Record<string, unknown>);
+  return settings[CLOSE_IDLE_SETTING] !== false;
+}
+
+/**
+ * The looks at idle editors, started at the first run's end and kept going while the backend runs;
+ * one look at a time, so a slow editor never has two.
+ */
+function idleWatch(deps: UnityBackendDeps): (storage: string) => void {
+  let watching = false;
+  let looking = false;
+  return (storage) => {
+    if (watching) return;
+    watching = true;
+    (deps.every ?? systemEvery)(() => {
+      if (looking) return;
+      looking = true;
+      void closeIdleEditors(storage, deps)
+        .catch(() => undefined)
+        .finally(() => {
+          looking = false;
+        });
+    }, IDLE_LOOK_MS);
+  };
+}
 
 const HUB = "Unity Hub (Add, then Add project from disk)";
 /**
@@ -481,6 +527,7 @@ export function createUnityBackend(deps: UnityBackendDeps): PluginActivation {
     installing ??= createInstaller(deps.install ?? systemInstallDeps(deps.editors, deps.open), async () => storage);
     return installing;
   };
+  const watchIdle = idleWatch(deps);
   const atMoment =
     <T>(handler: (moment: Moment, momentDeps: MomentDeps) => Promise<T>) =>
     async (context: PluginContext) =>
@@ -498,6 +545,12 @@ export function createUnityBackend(deps: UnityBackendDeps): PluginActivation {
     [UnityTool.ReopenEditor]: atMoment(reopenEditor),
     [UnityTool.EditorState]: atMoment(editorState),
     [UnityTool.OpenForRun]: atMoment(openForRun),
+    [UnityTool.AfterRun]: async (context) => {
+      const moment = await momentOf(context);
+      const answer = await afterRun(moment, deps, await closeIdleOn(context));
+      watchIdle(moment.storage);
+      return answer;
+    },
     [UnityTool.SceneShots]: atMoment(sceneShots),
     [UnityTool.EditorActivity]: atMoment(editorActivity),
     [UnityTool.ShowSteps]: async (context) => showSteps(deps, await installerOf(context), context),

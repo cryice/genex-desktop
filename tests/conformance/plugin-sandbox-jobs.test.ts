@@ -340,7 +340,14 @@ describe("a long job's output", () => {
       enabled: false,
     });
     t.after(() => sandbox.dispose());
-    const jobs = new PluginSandboxJobs({ run: (request) => sandbox.run(request), scratch: w.scratch });
+    let ran: ReturnType<typeof sandbox.run> | undefined;
+    const jobs = new PluginSandboxJobs({
+      run: (request) => {
+        ran = sandbox.run(request);
+        return ran;
+      },
+      scratch: w.scratch,
+    });
     const script = path.join(w.engine, "uat.sh");
     const flood = PLUGIN_SANDBOX_OUTPUT_CHARS + 1024 * 1024;
     await writeFile(
@@ -351,6 +358,9 @@ describe("a long job's output", () => {
     const request = { program: script, args: [], reads: [w.engine], writes: [w.packageDir], timeoutMs: 60_000 };
     const { id } = (await jobs.call("unreal", PluginService.SandboxRun, request, w.binding)) as { id: string };
     const read = () => jobs.call("unreal", PluginService.SandboxResult, { id }, w.binding);
+    // The flood is a real process that takes as long as it takes: wait for it to end, then for the
+    // job to record how it ended, never for a count of turns while it still writes.
+    await ran;
     await until(async () => ((await read()) as { state: string }).state !== SandboxJobState.Running);
     const job = (await read()) as { state: string; stdout: string; stderr: string; truncated: boolean };
     assert.equal(job.state, SandboxJobState.Exited);

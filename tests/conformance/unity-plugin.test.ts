@@ -91,6 +91,7 @@ describe("the bundled Unity plugin", () => {
         [HookEvent.TurnStart, UnityTool.FindProject],
         [HookEvent.RunPrepare, UnityTool.FindProject],
         [HookEvent.RunPrepare, UnityTool.OpenForRun],
+        [HookEvent.RunEnd, UnityTool.AfterRun],
         [HookEvent.CheckpointBefore, UnityTool.SaveAll],
         [HookEvent.CheckpointAfter, UnityTool.SceneShots],
         [HookEvent.RestoreBefore, UnityTool.SaveAll],

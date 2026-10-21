@@ -74,7 +74,8 @@ mismatch aborts installation (manifests are compared canonically). Local package
 releases use the same validation and isolated startup probe. Updates wait for active sessions; a
 failed probe leaves the prior installation selected. Expanded capabilities require explicit
 installation confirmation. Updates are never automatic. Each install or reload copies the package
-to `packages/<id>/<version>-<uuid>`; once the new copy is active (and its MCP servers moved to it)
+to `packages/<id>/<version>-<uuid>` (a clone where the disk can make one, as APFS does, so a
+profile's copies of the bundled plugins take no space until edited); once the new copy is active (and its MCP servers moved to it)
 the copy it replaced is deleted, as is a pending update superseded before it activated. At start-up
 Studio deletes copies of an installed id that no record points to and any `staging/` leftovers;
 folders of ids with no record are unlisted code and stay. Stored settings reach a new version only
@@ -2716,7 +2717,8 @@ operation timed out". Three things keep an unattended agent out of it and get it
 
 | Handler at its moment | What it does (`editor-moments.ts`) |
 | --- | --- |
-| `open-for-run` at `run.prepare` | Opens the editor and waits; a project with no Pipeline package, or an editor that does not answer, closes the run with the reason. |
+| `open-for-run` at `run.prepare` | Opens the editor and waits, recording when Genex itself opened it (`launched/<game>.json`); a project with no Pipeline package, or an editor that does not answer, closes the run with the reason. |
+| `after-run` at `run.end` | An editor Genex opened for the run starts its idle time (below); with the **close-idle-editor** setting off, its record is dropped. |
 | `save-all` at `checkpoint.before` | Saves as above. Unity not open: nothing. In the agent's own play, or in a run in the person's play while agents may use Unity as they play: stops it, then saves. In the person's play otherwise: a block (scenes can't be saved in play). Work it can't save: a block in a run, a note in a chat. |
 | `scene-shots` at `checkpoint.after`, and as the `viewport` observer (`live: "stills"`) | The main camera's still (1280×720) as an image, in a run and for the reviewer; a chat's checkpoint takes none. A still of one flat colour (a scene that builds itself only when Play starts) is no image but a note saying so; the skill asks agents to build the level into the scene with an Editor script, saving the meshes, textures and materials it makes as assets. |
 | `save-all`, then `end-editor`, at `restore.before` | Stops a play, saves, ends the editor and records that it did (`restore/<game>.json`); work it can't save, or an editor that won't end, blocks the restore. |
@@ -2757,7 +2759,25 @@ dialog of Unity's own), reloading (nothing listens) or restarted (401: the descr
 once), then says which. A command is never sent twice: one that was sent and got no answer is
 recorded as outcome unknown. A captured picture (`capture_game_view`, `capture_scene_view`, in a
 batch too) is handed over as an MCP image, at most four an answer, with a note in place of its
-base64 text.
+base64 text. A `capture_game_view` that names no `width` or `height` is sent with the size of
+Genex's own looks at the game (`ENGINE_PLAY_VIEW`, 1280×720, in whichever of the two the editor's
+catalogue lists): unsized, Unity captures the Game view at its full Retina size, and every picture
+stays in the agent's transcript. Each command the connector sends is noted in its folder
+(`agent-used.json`), for the idle editor below.
+
+#### An idle editor Genex opened
+
+Unity holds gigabytes of memory while it runs, so an editor Genex itself opened at a run's start is
+closed once nobody uses it (`editor-idle.ts`). After the first `after-run`, the backend looks every
+30 s (`IDLE_LOOK_MS`) at each such editor and closes it with a clean exit, its assets saved first,
+once 15 minutes (`IDLE_CLOSE_MS`) passed since both the run's end and the connector's last command.
+It is never closed while another run uses it, while it plays, compiles or reloads, or while its
+main thread does not answer. The person taking it over drops its record for good, so it is never
+closed: Unity seen as the app in front (`InternalEditorUtility.isApplicationActive`), its undo
+group moving between two looks with no connector command between them, or an open scene with
+unsaved work. An editor already open at the run's start, or opened from the panel or by an agent's
+`open-editor`, is the person's and has no record. The plugin's **close-idle-editor** setting (on
+unless turned off) is read at each run's end.
 
 Before a command is sent the gate (`pipeline-gate.ts`) checks it against the catalogue just read.
 It refuses a name the editor does not list; the commands agents never run (`eval`, `eval_file`,
@@ -3077,7 +3097,9 @@ Genex:
   (`native.supported`, `gateByPlugin`): a profile still on a plugin from before apps is told to
   update it in Plugins. The plugin's `publishing-apps` skill tells the game's agent how to build an
   app or a web version (in `web/`) for Publish, how to make an app open in a window, and never to
-  send the person to another store.
+  send the person to another store. A Unity web version is built from a full-window template the
+  agent writes in `Assets/WebGLTemplates/Genex/`: Unity's own templates draw a fixed 960x600 box.
+  A `WebGLTemplates/` folder is never taken for the game's web version (`NOT_A_WEB_GAME`).
   A game with no web build but a ready app (an Unreal or Unity game built for the Mac) gets Publish
   on the strip too (`stripEntries`' `apps`, read through the same channel); its press says "Publish
   Mac app" and runs `studio:plugins.genex-publish-apps` (`publishAppsFromDialog`, no web copy, no

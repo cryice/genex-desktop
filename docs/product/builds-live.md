@@ -16,10 +16,10 @@ An active run opens Builds once; a build shown from chat, or empty Builds, opens
 
 ## The two views
 
-**Live** plays the browser game in a native view; unwatched previews pause. The strip
+**Live** plays the browser game in a native view; previews pause unwatched or hidden. The strip
 holds Live/Builds/Assets, Reload, Play/Stop and Sound (⌥⌘M; heard when shown) once the
-game has content, Full screen (hold Esc), plugin actions, Multiplayer, Publish. Stop halts it until Play
-or Reload. An empty scaffold shows “Ready for your first idea”, or
+game has content, Full screen (hold Esc), plugin actions, Multiplayer, Publish. Stop halts it until
+Play/Reload. An empty scaffold shows “Ready for your first idea”, or
 “Building your game” with Watch progress, then Play latest; the first healthy build shows itself.
 Otherwise only the user changes Live (opening a game, Reload, Play, Make live, a chat request while
 hidden). A newer healthy build, a changed game folder (checkpoint, landing, rewind), a chat's show

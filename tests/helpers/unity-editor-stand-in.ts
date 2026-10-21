@@ -121,12 +121,17 @@ export async function fakeEditor(
  * A call's binding as the host hands it to the plugin's backend: the game and its folder (or
  * whatever a test binds), with a host that answers the plugin's storage and nothing else.
  */
-export function pluginContext(storage: string, binding: Partial<PluginContext> = {}): PluginContext {
+export function pluginContext(
+  storage: string,
+  binding: Partial<PluginContext> = {},
+  settings: Record<string, unknown> = {},
+): PluginContext {
   return {
     ...binding,
     signal: binding.signal ?? new AbortController().signal,
     callId: 1,
     host: (async (method: string) => {
+      if (method === "settings.read") return settings;
       if (method !== "storage.root") throw new Error(`unexpected host call ${method}`);
       return storage;
     }) as PluginContext["host"],

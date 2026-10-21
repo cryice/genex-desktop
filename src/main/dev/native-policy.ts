@@ -188,6 +188,13 @@ const FIXTURE_SAFE = [
   // What freeing space deletes, and deleting it: git in the games' folders, Genex's own copies.
   "studio:storage",
   "studio:storage.free",
+  // Where Genex keeps its files, and moving them. Only the person's own launch on Windows opens the
+  // picker or moves anything: a developer or test launch answers with its own folder, says it
+  // cannot move it, and reads nothing of the normal profile's (the data-folder fixture answers with
+  // stand-ins and moves nothing).
+  "studio:data-folder",
+  "studio:data-folder.choose",
+  "studio:data-folder.move",
   "studio:game.engine.undo",
   // Stops a process this profile's own agent started; nothing outside the profile changes.
   "studio:jobs.stop",
