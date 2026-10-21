@@ -13,6 +13,7 @@ import {
   SnapshotEngine,
   SnapshotIndex,
   STUDIO_COMMITTER,
+  checkOutNewRepo,
   ensureRepo,
   FIRST_COMMIT_MARKER,
   git,
@@ -225,7 +226,7 @@ describe("snapshot engine", () => {
     // a harness `.git` after `StudioCore.stop()` resolved, and the teardown that removed the folder
     // failed with ENOTEMPTY. Two packs over a limit of one make the next commit repack.
     const { engine, dir } = await harnessWorkspace();
-    await git(dir, ["repack", "-d", "-q"]);
+    await git(dir, ["repack", "-a", "-d", "-q"]);
     await writeFile(path.join(dir, "loop.mjs"), "export const version = 2;\n");
     await engine.snapshot({ scope: "harness", reason: "second pack" });
     await git(dir, ["repack", "-d", "-q"]);
@@ -235,6 +236,50 @@ describe("snapshot engine", () => {
     assert.equal((await packs()).length, 2);
     await git(dir, ["commit", "-q", "--allow-empty", "-m", "after edit"]);
     assert.equal((await packs()).length, 1, "the repack ran inside the commit, not after it");
+  });
+
+  it("writes a new repository's files into one pack, not an object file per file", async () => {
+    // Windows scans each file as it is written: a loose object per file made the first start's
+    // harness commit write hundreds of files, each waiting on the antivirus.
+    const dir = path.join(await tmpDir(), "ws");
+    const folders = ["loop", "prompts", "tools"];
+    const perFolder = 40;
+    for (const folder of folders) {
+      await mkdir(path.join(dir, folder), { recursive: true });
+      for (let index = 0; index < perFolder; index++)
+        await writeFile(path.join(dir, folder, `file-${index}.ts`), `export const value = ${index};\n// ${folder}\n`);
+    }
+    await ensureRepo(dir);
+    const counts = Object.fromEntries(
+      (await git(dir, ["count-objects", "-v"]))
+        .trim()
+        .split("\n")
+        .map((line) => line.split(": ") as [string, string]),
+    );
+    assert.equal(Number(counts["in-pack"]), folders.length * perFolder, "every file's contents in a pack");
+    // What stays loose is the commit and its trees: one per folder and the root.
+    assert.equal(Number(counts.count), 1 + folders.length + 1);
+    assert.equal((await git(dir, ["status", "--porcelain"])).trim(), "");
+    assert.equal((await git(dir, ["ls-files"])).trim().split("\n").length, folders.length * perFolder);
+  });
+
+  it("checks a new repository out from another folder's files, names and bytes exactly as they are", async () => {
+    const from = await tmpDir();
+    const names = ["plain.ts", "with space.md", "ünïcode/файл.txt", "deep/er/still.ts"];
+    // Windows refuses these characters in a file name.
+    if (process.platform !== "win32") names.push('a "quoted" name.json', "back\\slash.ts", "line\nbreak.ts");
+    for (const [index, name] of names.entries()) {
+      await mkdir(path.dirname(path.join(from, name)), { recursive: true });
+      await writeFile(path.join(from, name), `content ${index}\n`);
+    }
+    const dir = path.join(await tmpDir(), "ws");
+    await checkOutNewRepo(from, dir, names);
+    for (const [index, name] of names.entries())
+      assert.equal(await readFile(path.join(dir, name), "utf8"), `content ${index}\n`);
+    assert.deepEqual((await git(dir, ["ls-files", "-z"])).split("\0").filter(Boolean).sort(), [...names].sort());
+    assert.equal((await git(dir, ["status", "--porcelain"])).trim(), "");
+    assert.equal((await git(dir, ["log", "--format=%an|%s"])).trim(), `${STUDIO_COMMITTER.name}|substrate: initial`);
+    assert.equal(await needsFirstCommit(dir), false, "a finished checkout is a finished repository");
   });
 
   /** A folder of seed-like files whose first commit an earlier start began and never finished. */

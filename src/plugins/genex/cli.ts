@@ -9,6 +9,7 @@ import { genexTelemetryEnv } from "../../substrate/genex-telemetry.ts";
 import { windowsBaseEnv } from "../../substrate/child-env.ts";
 import { envPath } from "../../substrate/toolchain.ts";
 import { SECOND_MS } from "../../shared/duration.ts";
+import { PLUGIN_SEED_ENV } from "../../substrate/plugins/process.ts";
 
 const require = createRequire(import.meta.url);
 
@@ -28,6 +29,7 @@ const MESSAGE = {
   LocalStop: (timedOut: boolean) =>
     `${timedOut ? "Local wait timed out" : "Stopped locally"}; an accepted Genex job may still be running. Reconcile the existing request before submitting again.`,
   Exited: (code: number | null) => `Genex exited ${code}`,
+  NoCli: "The pinned Genex CLI is missing from this plugin and its seed",
 } as const;
 
 /** Terminal colour codes the CLI prints despite NO_COLOR. */
@@ -74,10 +76,23 @@ export function genexCliEnv(
 }
 
 /** The vendored CLI's entry point, outside the asar archive when packaged. */
-export function genexCliPath(): string {
-  return path
-    .join(path.dirname(require.resolve("@genex-ai/cli-demo/package.json")), "dist/index.js")
-    .replace(/app\.asar([\\/])/, "app.asar.unpacked$1");
+export function genexCliPath(seed = process.env[PLUGIN_SEED_ENV]): string {
+  const pkg =
+    (seed ? resolveCliPackage(createRequire(path.join(seed, "package.json"))) : undefined) ??
+    resolveCliPackage(require);
+  if (!pkg) throw new Error(MESSAGE.NoCli);
+  return path.join(path.dirname(pkg), "dist/index.js").replace(/app\.asar([\\/])/, "app.asar.unpacked$1");
+}
+
+const CLI_PACKAGE_JSON = "@genex-ai/cli-demo/package.json";
+
+/** Where `require` finds the pinned CLI's package.json, if it does. */
+function resolveCliPackage(from: NodeJS.Require): string | undefined {
+  try {
+    return from.resolve(CLI_PACKAGE_JSON);
+  } catch {
+    return undefined;
+  }
 }
 
 /** One CLI run. `parse` asks for `--json` and returns the parsed answer; otherwise `{ out }`. */

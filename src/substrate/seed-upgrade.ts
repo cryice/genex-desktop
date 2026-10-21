@@ -633,6 +633,11 @@ export interface ApplySeedOptions {
   updatesDir?: string;
   /** The running app's version, stamped into the manifest's `writer`. */
   appVersion?: string;
+  /**
+   * Lays the seed's `files` into an empty workspace on a first launch, instead of a copy: the core
+   * makes the workspace's repository as it does (`checkOutNewRepo`).
+   */
+  laySeed?: (seedDir: string, workspaceDir: string, files: readonly string[]) => Promise<void>;
 }
 
 /** The `seed-backup-*` folders under `updatesDir`: every seed vintage an earlier upgrade backed up. */
@@ -744,7 +749,8 @@ async function seedEmptyWorkspace(
   options: ApplySeedOptions,
   seedHashes: Map<string, string>,
 ): Promise<SeedUpgradeReport> {
-  await cp(options.seedDir, options.workspaceDir, { recursive: true, force: true });
+  if (options.laySeed) await options.laySeed(options.seedDir, options.workspaceDir, [...seedHashes.keys()]);
+  else await cp(options.seedDir, options.workspaceDir, { recursive: true, force: true });
   const javascriptSeed = [...seedHashes.keys()].some(isLegacyModule);
   await writeManifest(options.manifestFile, seedHashes, {
     ...writtenBy(options),

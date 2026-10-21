@@ -38,9 +38,9 @@ is a host project with the plugin in `Plugins/`; its tools build, test and packa
 
 ## Godot, Roblox, Unity
 
-Godot 4.3+: its button gets Godot, makes a **New Godot game** (2D/3D, `godot/`) and opens your
-editor, which saves at save points, reloads after Rewind; **Change project** links one anywhere.
-Its `web/` build plays in Live; **Multiplayer** joins web and native.
+Godot 4.3+, Mac only (on Windows, Get Godot opens its download page): makes a **New Godot game**
+(2D/3D, `godot/`), opens your editor (saving at save points, reloading after Rewind); **Change
+project** links one. `web/` plays in Live; **Multiplayer** joins web, native.
 
 **Roblox Studio** sets up your Studio; **New Roblox game** writes a Baseplate place, **Use in this
 game** links one per game. Unity sets up and opens its project; agents add packages, build and

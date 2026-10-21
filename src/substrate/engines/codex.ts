@@ -1024,7 +1024,7 @@ export class CodexEngine implements Engine {
       : null;
     const metadata = this.#watchSessionMetadata(request, run, startedAt, model);
     try {
-      const argv = await this.#delegateArgv(request, model, runDir, stills.paths);
+      const argv = await this.#delegateArgv(request, model, runDir, stills.paths, bridgeRoots(this.#platform, bridge));
       const signal = controller.signal;
       const delivery = toolDelivery(dir);
       const source = { argv, runDir, prompt, turn, images: stills.paths, delivery };
@@ -1269,13 +1269,14 @@ export class CodexEngine implements Engine {
     model: string | undefined,
     runDir: string,
     imagePaths: string[],
+    bridge: string[],
   ): Promise<string[]> {
     return [
       "exec",
       ...(request.resume ? ["resume", request.resume] : []),
       ...CODEX_EXEC_FLAGS,
       ...(model ? ["-m", model] : []),
-      ...sessionBox(request, runDir),
+      ...sessionBox(request, runDir, bridge),
       ...windowsSandboxArgs(this.#platform),
       ...effortArgs(request.effort),
       ...(await this.preferenceArgs(request.model, request.preferences)),
@@ -2349,10 +2350,26 @@ function startsElsewhere(request: DelegateRequest): boolean {
   return readOnly || chatMode(request) === PermissionMode.Plan || request.worker?.mode === PermissionMode.Plan;
 }
 
-/** The session's box: the bypass flag only for the chat's own session in Bypass; a worker's own box; else one root. */
-function sessionBox(request: DelegateRequest, runDir: string): string[] {
-  if (request.worker) return [...workerBox(request, runDir), ...workerWebSearch(request)];
-  return chatMode(request) === PermissionMode.Bypass ? BYPASS_ARGS : sandboxArgs(runDir);
+/**
+ * The session's box: the bypass flag only for the chat's own session in Bypass; a worker's own
+ * box; else its folder. `bridge` is the bridge's own roots (`bridgeRoots`).
+ */
+function sessionBox(request: DelegateRequest, runDir: string, bridge: string[]): string[] {
+  if (request.worker) return [...workerBox(request, runDir, bridge), ...workerWebSearch(request)];
+  return chatMode(request) === PermissionMode.Bypass ? BYPASS_ARGS : sandboxArgs(runDir, [runDir, ...bridge]);
+}
+
+/**
+ * The bridge's request folder as a writable root of its own, on Windows (#351). Codex's Windows
+ * sandbox grants a root by adding its ACEs there and rewriting them down the tree, which needs
+ * WRITE_DAC on every folder below. A `.studio` the harness made runs as another Windows user
+ * (ProcessSandbox's), so the grant stops there and every bridge call failed EPERM. The request
+ * folder is the host's, made just before the session starts, so Codex grants it directly; the
+ * rest of `.studio` keeps whatever the session could already write. Elsewhere the folder's own
+ * grant reaches the bridge.
+ */
+function bridgeRoots(platform: NodeJS.Platform, bridge: StudioBridge | null): string[] {
+  return platform === "win32" && bridge ? [bridge.requests] : [];
 }
 
 /**
@@ -2371,15 +2388,15 @@ function workerWebSearch(request: DelegateRequest): string[] {
  * Bypass chat. Its box never stops reads, so the never-touch list holds for its writes (and is
  * named in its brief). Plan and a reader start elsewhere and write only the studio's bridge.
  */
-function workerBox(request: DelegateRequest, runDir: string): string[] {
+function workerBox(request: DelegateRequest, runDir: string, bridge: string[]): string[] {
   const seat = request.worker;
-  if (!seat || startsElsewhere(request)) return sandboxArgs(runDir);
+  if (!seat || startsElsewhere(request)) return sandboxArgs(runDir, [runDir, ...bridge]);
   // Its box cannot deny inside a writable folder: none that is, holds or sits in a never-touch root.
   const writes = writableRoots(
     seat.writeRoots.map((dir) => path.resolve(dir)),
     seat.neverTouch,
   );
-  const roots = [...new Set([path.resolve(runDir), ...writes])];
+  const roots = [...new Set([path.resolve(runDir), ...bridge, ...writes])];
   return sandboxArgs(runDir, roots, seat.mode === PermissionMode.Bypass);
 }
 

@@ -2167,6 +2167,7 @@ async function launchStudio(studio: StudioCore): Promise<StartedStudio | null> {
     if (!showsFixtureSetup()) bootGate.ready();
     const before = window;
     const win = await createWindow(studio);
+    studio.options.markBoot?.("window");
     window = win;
     // The start or setup window this launch opened first gives way to the studio's.
     if (before && before !== win && !before.isDestroyed()) before.destroy();

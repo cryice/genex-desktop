@@ -57,6 +57,14 @@ function fakeExec(events: unknown[], options: { throwOn?: Error } = {}) {
   return { fn, seen };
 }
 
+/**
+ * The bridge's request folder, which a session on Windows also writes as a root of its own (#351);
+ * a session with no bridge, or on another platform, has none.
+ */
+function bridgeRoot(cwd: string): string[] {
+  return process.platform === "win32" ? [path.join(cwd, ".studio", "bridge", "req")] : [];
+}
+
 const successRun = [
   { type: "thread.started", thread_id: "01a0-thread" },
   { type: "turn.started" },
@@ -372,7 +380,11 @@ describe("codex engine", () => {
     const plan = seen.at(-1)!;
     assert.notEqual(plan.cwd, game, "Plan starts from a folder of its own: Codex can always write where it starts");
     assert.ok(sandboxed(plan.argv));
-    assert.deepEqual(writable(plan.argv), [plan.cwd], "the only place it writes is the studio's bridge folder");
+    assert.deepEqual(
+      writable(plan.argv),
+      [plan.cwd, ...bridgeRoot(plan.cwd)],
+      "the only place it writes is the studio's bridge folder",
+    );
     assert.ok(plan.prompt.includes(planModeNote(game, plan.cwd)), plan.prompt);
     assert.doesNotMatch(plan.prompt, /The build you are testing/);
 
@@ -388,7 +400,7 @@ describe("codex engine", () => {
       const call = seen.at(-1)!;
       assert.equal(call.cwd, game, mode);
       assert.ok(sandboxed(call.argv), `${mode} keeps the sandbox`);
-      assert.deepEqual(writable(call.argv), [game], mode);
+      assert.deepEqual(writable(call.argv), [game, ...bridgeRoot(game)], mode);
       assert.ok(!call.argv.includes("--dangerously-bypass-approvals-and-sandbox"), mode);
     }
     // Unattended work has no mode at all: the sandboxed contract.
@@ -470,7 +482,7 @@ describe("codex engine", () => {
       assert.equal(call.cwd, game, mode);
       assert.ok(boxed(call.argv), `${mode}: boxed`);
       assert.ok(!call.argv.includes("--dangerously-bypass-approvals-and-sandbox"), `${mode}: never the bypass flag`);
-      assert.deepEqual(writable(call.argv), [game, refs], `${mode}: its write roots`);
+      assert.deepEqual(writable(call.argv), [game, ...bridgeRoot(game), refs], `${mode}: its write roots`);
       const open = mode === "bypassPermissions";
       assert.equal(network(call.argv), `sandbox_workspace_write.network_access=${open}`, mode);
       assert.ok(call.prompt.includes(path.join(root, "other-game")), `${mode}: the brief names what it never reaches`);
@@ -478,10 +490,66 @@ describe("codex engine", () => {
     await engine.delegate({ prompt: "plan the scene", cwd: game, worker: seat("plan") });
     const plan = seen.at(-1)!;
     assert.notEqual(plan.cwd, game, "Plan reads from a folder of its own");
-    assert.deepEqual(writable(plan.argv), [plan.cwd], "and writes only the studio's bridge there");
+    assert.deepEqual(
+      writable(plan.argv),
+      [plan.cwd, ...bridgeRoot(plan.cwd)],
+      "and writes only the studio's bridge there",
+    );
     assert.equal(network(plan.argv), "sandbox_workspace_write.network_access=false");
     await engine.delegate({ prompt: "read the scene", cwd: game, readOnly: true, worker: seat("auto") });
     assert.notEqual(seen.at(-1)!.cwd, game, "a reader in place starts elsewhere too");
+  });
+
+  it("on Windows names the bridge's request folder as a root of its own, so a .studio the harness made still lets the session call its tools (#351)", async () => {
+    // Codex's Windows sandbox grants a root by rewriting its ACL down the tree, which stops at a
+    // `.studio` the sandboxed harness created (another owner): every bridge call failed EPERM.
+    // The request folder is the host's, made just before the session, so it is granted directly.
+    const writable = (argv: string[]) => {
+      const roots = argv.find((arg) => arg.startsWith("sandbox_workspace_write.writable_roots="));
+      return roots ? (JSON.parse(roots.slice(roots.indexOf("=") + 1)) as string[]) : null;
+    };
+    const sessions = async (platform: NodeJS.Platform) => {
+      const { fn, seen } = fakeExec(successRun);
+      const { engine, root } = await signedInEngine(fn, platform);
+      const game = path.join(root, "game");
+      const refs = path.join(root, "refs");
+      for (const dir of [game, refs]) await mkdir(dir, { recursive: true });
+      const worker: WorkerSeat = {
+        id: "w1",
+        title: "Scene builder",
+        mode: PermissionMode.Auto,
+        writeRoots: [game, refs],
+        neverTouch: { roots: [], open: [] },
+        research: false,
+      };
+      const bypass: DelegatePermissions = {
+        mode: PermissionMode.Bypass,
+        allow: [],
+        directories: [],
+        protectWrites: [],
+        ask: async () => ({ decision: "deny" }),
+      };
+      await engine.delegate({ prompt: "build the scene", cwd: game, worker });
+      await engine.delegate({ prompt: "build pong", cwd: game });
+      await engine.delegate({ prompt: "test the build", cwd: game, readOnly: true, onCapture: async () => "" });
+      await engine.delegate({ prompt: "build pong", cwd: game, permissions: bypass });
+      return { game, refs, calls: seen.map((call) => ({ cwd: call.cwd, roots: writable(call.argv) })) };
+    };
+    const requests = (cwd: string) => path.join(cwd, ".studio", "bridge", "req");
+
+    const windows = await sessions("win32");
+    const [worker, builder, reader, bypass] = windows.calls;
+    assert.deepEqual(worker!.roots, [windows.game, requests(windows.game), windows.refs], "a worker");
+    assert.deepEqual(builder!.roots, [windows.game, requests(windows.game)], "a builder");
+    assert.deepEqual(reader!.roots, [reader!.cwd, requests(reader!.cwd)], "a reader, in its own folder");
+    assert.equal(bypass!.roots, null, "Bypass has no box to widen");
+
+    const mac = await sessions("darwin");
+    assert.deepEqual(
+      mac.calls.map((call) => call.roots),
+      [[mac.game, mac.refs], [mac.game], [mac.calls[2]!.cwd], null],
+      "elsewhere the workspace grant reaches the bridge already",
+    );
   });
 
   it("a Codex worker searches the web as a writer or a research worker, and never otherwise", async () => {
@@ -552,7 +620,7 @@ describe("codex engine", () => {
     await engine.delegate({ prompt: "build the scene", cwd: copy, worker: seat });
     const call = seen.at(-1)!;
     const roots = call.argv.find((arg) => arg.startsWith("sandbox_workspace_write.writable_roots="));
-    assert.deepEqual(JSON.parse(roots?.slice(roots.indexOf("=") + 1) ?? "null"), [copy, refs]);
+    assert.deepEqual(JSON.parse(roots?.slice(roots.indexOf("=") + 1) ?? "null"), [copy, ...bridgeRoot(copy), refs]);
     const listed = call.prompt.split("\n").map((line) => line.trim());
     assert.ok(!listed.includes(userData), "the data folder holding its own copy is not off limits whole");
     for (const named of [otherGame, path.join(fakeHome, ".codex")]) assert.ok(listed.includes(named), named);

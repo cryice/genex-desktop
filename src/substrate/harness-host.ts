@@ -42,6 +42,12 @@ import { rpcDeadlineMs } from "./rpc-deadlines.ts";
 
 /** How long a freshly spawned harness has to send its ready message. */
 const READY_TIMEOUT_MS = 20 * SECOND_MS;
+/**
+ * The same for the first boot of a host: on a Windows first start the sandboxed harness reads
+ * every one of its modules for the first time while Defender scans them, and on a lived-in
+ * Windows 11 profile it missed the 20 s (the first chat message then found no harness).
+ */
+const FIRST_READY_TIMEOUT_MS = 60 * SECOND_MS;
 /** How long `stop()` waits for the harness to exit before it kills the process tree. */
 const STOP_GRACE_MS = 5 * SECOND_MS;
 /** How long the healthcheck round-trip may take before the new self counts as unhealthy. */
@@ -132,6 +138,10 @@ export interface UpdateRecord {
   error?: string;
 }
 
+/** The parts of a harness boot the host marks, so a slow start's log says which one held it. */
+export const HarnessBootStep = { Spawned: "spawned", Ready: "ready" } as const;
+export type HarnessBootStep = (typeof HarnessBootStep)[keyof typeof HarnessBootStep];
+
 export interface HarnessHostOptions {
   /** Directory of the agent-editable harness workspace. */
   workspace: string;
@@ -172,8 +182,15 @@ export interface HarnessHostOptions {
   /** How long a call of `method` is serviced before the harness is answered `RpcDeadline`; null for no deadline (`rpc-deadlines.ts`). */
   rpcDeadlineMs?: (method: string) => number | null;
   now?: () => number;
+  /**
+   * How long a boot has to report ready: the host's first one, and every later one (default
+   * {@link FIRST_READY_TIMEOUT_MS} and {@link READY_TIMEOUT_MS}).
+   */
+  readyTimeoutMs?: { first: number; later: number };
   /** Test seam: the platform whose stop and launch rules apply (default: this one). */
   platform?: NodeJS.Platform;
+  /** Each part of a boot as it finishes. */
+  onBootStep?: (step: HarnessBootStep) => void;
 }
 
 export interface ExitInfo {
@@ -220,6 +237,8 @@ export class HarnessHost {
   #callerRecovers = false;
   #heartbeatTimer: NodeJS.Timeout | null = null;
   #restarting: Promise<void> | null = null;
+  /** A boot of this host reported ready once: later boots find their modules read before. */
+  #bootedOnce = false;
 
   constructor(options: HarnessHostOptions) {
     this.options = options;
@@ -308,6 +327,7 @@ export class HarnessHost {
     });
     this.#child = child;
     this.#generation++;
+    this.options.onBootStep?.(HarnessBootStep.Spawned);
     void this.#inbox?.connect(() => this.#child === child);
 
     child.stdout?.setEncoding("utf8");
@@ -352,11 +372,19 @@ export class HarnessHost {
     this.#lastHeartbeat = this.#now();
     this.#startHeartbeatMonitor();
 
-    await this.#waitForReady();
+    await this.#waitForReady(this.#readyTimeoutMs());
+    this.#bootedOnce = true;
+    this.options.onBootStep?.(HarnessBootStep.Ready);
     if (notice) await this.dispatch(notice);
   }
 
-  async #waitForReady(timeoutMs = READY_TIMEOUT_MS): Promise<void> {
+  /** How long this boot has to report ready: a first boot reads every module cold. */
+  #readyTimeoutMs(): number {
+    const limits = this.options.readyTimeoutMs ?? { first: FIRST_READY_TIMEOUT_MS, later: READY_TIMEOUT_MS };
+    return this.#bootedOnce ? limits.later : limits.first;
+  }
+
+  async #waitForReady(timeoutMs: number): Promise<void> {
     if (this.#state === HarnessState.Ready) return;
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {

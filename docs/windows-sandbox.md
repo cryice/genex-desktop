@@ -125,7 +125,14 @@ the setup screen opens on `git-missing`. What differs from macOS:
   writes nothing, so passing entries down a folder happens once: a Genex that quits keeps its
   record, and the next sync of any Genex keeps what a running one needs and takes back the rest. A
   first walk of a large folder can take minutes (10 at most per batch; the log names each edit
-  over 2 s); one that runs out of time keeps what it set, and the next try goes on. A per-command
+  over 2 s); one that runs out of time keeps what it set, and the next try goes on. Where the
+  sandbox user (in BUILTIN\Users) can open nothing under a denied path with or without the walk
+  (the path passes no allow down to anyone but its owner, SYSTEM and the Administrators, before or
+  after the edit, and every entry under it, read for its owner and DACL alone, is owned by and
+  allows only them, protected or not), the start writes the path alone, which files made in it
+  inherit, and records the walk; the session runs
+  it two minutes after the start (`own entries passed down` in the log), and the next start runs
+  one a Genex quit before. A browser profile's walk took 17 s of a Windows 11 first start. A per-command
   deny Genex already sets is not sent again. Without the group, where PowerShell cannot run the
   batch or the running user holds the SID, srt-win sets every grant and deny as before, and the
   log says so (`own entries off`). srt-win keeps a missing deny path (it makes its placeholder), a

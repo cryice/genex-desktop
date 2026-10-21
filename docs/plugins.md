@@ -3028,7 +3028,10 @@ Genex:
   It can't be removed. A finished sign-in turns it on unless the person turned it off themselves
   (the record's `turnedOff`, set only by `setEnabled(false)`).
 - `host-cli` MCP servers run Studio's own bundled Genex CLI (`@genex-ai/cli-demo`, an app
-  dependency unpacked from the asar) behind `src/genex-host/preload.mjs`. The manifest validator
+  dependency unpacked from the asar) behind `src/genex-host/preload.mjs`. A bundled seed is copied
+  into the profile without its `node_modules` (Windows 11 held the CLI's 2,394 fresh files past the
+  start budget), so the CLI resolves from the seed in the app first (`genexCliPath`), and a bundled
+  plugin's backend is told that seed's folder in `STUDIO_PLUGIN_SEED`. The manifest validator
   reserves the command for the id `genex`, and the launcher also requires source `bundled`.
 - For `host-cli`, `credential-file` renders the `GENEX_TOKEN=` env-file line and a virtual env path.
   The preload answers only the CLI's per-origin sign-in record beside that path, for the origin in

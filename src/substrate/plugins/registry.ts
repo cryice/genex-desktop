@@ -569,6 +569,8 @@ const newerVersion = (next: string | undefined, current: string) =>
 export interface PluginMcpLaunch {
   /** The installed package, the only place a `node` server's script may live. */
   packageDir: string;
+  /** A bundled plugin's seed folder in the app, which keeps the dependencies its copy leaves out. */
+  seed?: string;
   storageRoot(): Promise<string>;
   projectStorage(project: string): Promise<string>;
   settings(): Promise<Record<string, unknown>>;
@@ -622,6 +624,35 @@ export class PluginConsentDeclined extends Error {
     this.by = by;
   }
 }
+
+/** A bundled seed's dependencies stay in the app: its copy in the profile leaves them out. */
+const SEED_DEPENDENCIES = "node_modules";
+
+/** A copy filter for seed `seed`: everything but its top-level dependencies folder. */
+function withoutSeedDependencies(seed: string): (source: string) => boolean {
+  const dependencies = path.join(path.resolve(seed), SEED_DEPENDENCIES);
+  return (source) => path.resolve(source) !== dependencies;
+}
+
+/** The parts of `PluginRegistry.init`, in order, as `onInitStep` names them when each finishes. */
+export const PluginInitStep = {
+  /** The saved install records read and checked. */
+  Records: "records",
+  /** One bundled seed copied into the profile (a first launch, or a lost copy); named with its plugin. */
+  Seed: "seed",
+  /** Updates that waited for a lease applied. */
+  Pending: "pending",
+  /** The records written back. */
+  Saved: "saved",
+  /** Copies no record names removed. */
+  Swept: "swept",
+  /** Packages with no record listed. */
+  Unlisted: "unlisted",
+  /** Saved accounts unlocked again. */
+  Accounts: "accounts",
+} as const;
+export type PluginInitStep = (typeof PluginInitStep)[keyof typeof PluginInitStep];
+
 export class PluginRegistry {
   #installed = new Map<string, Installed>();
   #seedManifests = new Map<string, PluginManifest>();
@@ -821,6 +852,11 @@ export class PluginRegistry {
    * that has since changed on disk. Bundled seeds stay `not scanned`, as they always were.
    */
   scan: ((directory: string, manifest: PluginManifest) => Promise<PluginScan>) | undefined;
+  /**
+   * Hears each part of `init` as it finishes, and each seed a first launch copies (`plugin`), for the
+   * start's log: on a fresh Windows 11 the plugin setup outlasted the whole start budget.
+   */
+  onInitStep: ((step: PluginInitStep, plugin?: string) => void) | undefined;
   /** Developer sink for backend stderr lines. Never user-facing status: a backend may print provider output. */
   debug: ((id: string, line: string) => void) | undefined;
   /** The user's login PATH for backends to start with; the host sets it. Absent → the app's own. */
@@ -860,6 +896,15 @@ export class PluginRegistry {
   }
   #packages() {
     return path.join(this.root, PACKAGES_DIR);
+  }
+  /** Whether `directory` is one of the app's bundled seeds. */
+  #isSeed(directory: string): boolean {
+    return path.dirname(path.resolve(directory)) === path.resolve(this.seeds);
+  }
+  /** A bundled install's seed folder, where its dependencies stay (`PLUGIN_SEED_ENV`); nothing for any other. */
+  #seedOption(p: Installed): { seed?: string } {
+    if (p.source !== PluginSourceKind.Bundled) return {};
+    return { seed: this.#seedDirectories.get(p.manifest.id) ?? path.join(this.seeds, p.manifest.id) };
   }
   #owned(directory: string) {
     return path.resolve(directory).startsWith(path.resolve(this.#packages()) + path.sep);
@@ -920,7 +965,8 @@ export class PluginRegistry {
       await inspectPackage(directory);
       const installed = path.join(this.#packages(), manifest.id, `${manifest.version}-${randomUUID()}`);
       await mkdir(path.dirname(installed), { recursive: true });
-      await cp(directory, installed, { recursive: true });
+      await cp(directory, installed, { recursive: true, filter: withoutSeedDependencies(directory) });
+      this.onInitStep?.(PluginInitStep.Seed, manifest.id);
       const lost = this.#lostSeedCopies.get(manifest.id);
       this.#lostSeedCopies.delete(manifest.id);
       this.#installed.set(manifest.id, {
@@ -957,17 +1003,24 @@ export class PluginRegistry {
     }
   }
   async init() {
+    const step = (name: PluginInitStep) => this.onInitStep?.(name);
     await mkdir(this.root, { recursive: true, mode: 0o700 });
     for (const [id, p] of Object.entries(await this.#readRecords("installed.json"))) await this.#loadInstalled(id, p);
+    step(PluginInitStep.Records);
     await this.#installSeeds();
     await this.#applyPending();
     await atomicWriteJson(path.join(this.root, "pending.json"), {});
+    step(PluginInitStep.Pending);
     await this.#save();
+    step(PluginInitStep.Saved);
     await this.#sweep();
+    step(PluginInitStep.Swept);
     await this.#discoverUnlisted();
+    step(PluginInitStep.Unlisted);
     // A previous successful user connection grants restoration, not a new browser sign-in.
     // One attempt per launch; a refused OS unlock remains actionable, never retried by polling.
     for (const id of this.#installed.keys()) await this.#restoreSavedAccount(id);
+    step(PluginInitStep.Accounts);
   }
   /** A lifecycle transition can restore previous consent; it never starts browser sign-in. */
   async #restoreSavedAccount(id: string) {
@@ -1146,6 +1199,7 @@ export class PluginRegistry {
     const storageRoot = () => this.service(id, PluginService.StorageRoot, {}) as Promise<string>;
     return {
       packageDir: p.directory,
+      ...this.#seedOption(p),
       storageRoot,
       projectStorage: async (project) => {
         if (!MCP_PROJECT.test(project)) throw new Error(MESSAGE.InvalidProject);
@@ -1638,11 +1692,14 @@ export class PluginRegistry {
     const destination = path.join(this.#packages(), manifest.id, `${manifest.version}-${randomUUID()}`);
     await mkdir(path.dirname(destination), { recursive: true });
     try {
+      const packaged = packageCopyFilter(directory);
+      // A bundled plugin restored from its seed leaves its dependencies there, as a first launch does.
+      const fromSeed = this.#isSeed(directory) ? withoutSeedDependencies(directory) : () => true;
       await cp(directory, destination, {
         recursive: true,
         errorOnExist: true,
         force: false,
-        filter: packageCopyFilter(directory),
+        filter: (source) => packaged(source) && fromSeed(source),
       });
       await inspectPackage(destination);
     } catch (e) {
@@ -1651,7 +1708,7 @@ export class PluginRegistry {
     }
     if (!probe) return destination;
     try {
-      await this.#probe(destination, manifest);
+      await this.#probe(destination, manifest, this.#isSeed(directory) ? directory : undefined);
     } catch (e) {
       await rm(destination, { recursive: true, force: true });
       throw e;
@@ -1659,7 +1716,7 @@ export class PluginRegistry {
     return destination;
   }
   /** Prove a staged package's backend starts: it loads and answers a ping, with no host services. */
-  async #probe(directory: string, manifest: PluginManifest): Promise<void> {
+  async #probe(directory: string, manifest: PluginManifest, seed?: string): Promise<void> {
     const probe = new PluginProcess(
       this.bootstrap,
       path.join(directory, manifest.backend),
@@ -1667,6 +1724,7 @@ export class PluginRegistry {
         throw new Error(MESSAGE.NoHostServices);
       },
       () => {},
+      seed ? { seed } : {},
     );
     try {
       await probe.call("ping", "", {});
@@ -1904,6 +1962,7 @@ export class PluginRegistry {
             } catch {}
           },
           ...(this.toolPath ? { toolPath: this.toolPath } : {}),
+          ...this.#seedOption(p),
         },
       );
       this.#processes.set(id, process);

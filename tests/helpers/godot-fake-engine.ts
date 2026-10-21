@@ -196,6 +196,8 @@ export async function godotBackendFixture(
     editorLines?: string[];
     install?: GodotInstallDeps;
     release?: ColyseusRelease;
+    /** The computer the backend believes it is on; a Mac unless a test names another. */
+    platform?: NodeJS.Platform;
   } = {},
 ) {
   const mac = await fakeMac(options.apps);
@@ -207,7 +209,7 @@ export async function godotBackendFixture(
   const runner = recordingRunner(options.answers);
   const recorded = recordingEditor(options.editorLines);
   const backend = createGodotBackend({
-    env: mac.env,
+    env: options.platform ? { ...mac.env, platform: options.platform } : mac.env,
     editor: recorded.editor,
     run: runner.run,
     scripts: SCRIPTS,

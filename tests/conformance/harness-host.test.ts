@@ -8,7 +8,7 @@
  */
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { cp, mkdir, readdir, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
@@ -44,6 +44,8 @@ const RIG_STOP_GRACE_MS = 200;
 /** How often, and at most how long, a test looks for what the host should have done by itself. */
 const UNTIL_POLL_MS = 50;
 const UNTIL_LIMIT_MS = 60_000;
+/** How long the slow-boot fixture waits before it loads. */
+const SLOW_BOOT_MS = 2_000;
 
 /**
  * Wait until `done` holds, failing with `what` if it never does. The host's background work
@@ -152,6 +154,24 @@ describe("harness host: boot & RPC", () => {
     assert.ok(r.notifications.some((n) => n.type === "chat.delta"));
     await r.host.stop();
     assert.equal(r.host.state, "stopped");
+  });
+
+  it("gives the first boot longer to report ready than a later one", async () => {
+    // A Windows 11 first start: the sandboxed harness read every module for the first time while
+    // Defender scanned them, missed the fixed 20 s, and the first chat message found no harness.
+    const r = await rig("slow-first-boot");
+    const slow = new HarnessHost({ ...r.host.options, readyTimeoutMs: { first: 60_000, later: SLOW_BOOT_MS / 4 } });
+    const main = path.join(r.workspace, "loop", "main.mjs");
+    const original = await readFile(main, "utf8");
+    await writeFile(
+      main,
+      `import { setTimeout as wait } from "node:timers/promises";\nawait wait(${SLOW_BOOT_MS});\n${original}`,
+    );
+    await slow.start();
+    assert.equal(slow.state, "ready", "the first boot had time");
+    await slow.stop();
+    await assert.rejects(() => slow.start(undefined, { callerRecovers: true }), /did not report ready/);
+    await slow.stop();
   });
 
   it("passes substrate errors back to the harness instead of killing it", async () => {
