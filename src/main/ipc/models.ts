@@ -46,6 +46,12 @@ const isApiKeyEngine = (engine: unknown): engine is ApiKeyEngine =>
   typeof (engine as Partial<ApiKeyEngine> | null)?.saveKey === "function" &&
   typeof (engine as Partial<ApiKeyEngine> | null)?.clearKey === "function";
 
+/** The managed Bonsai runtime, or null when Bonsai is absent or is not the managed engine. */
+function bonsaiRuntime(engines: StudioCore["engines"]): BonsaiEngine["runtime"] | null {
+  const engine = engines.has(EngineId.Bonsai) ? engines.get(EngineId.Bonsai) : null;
+  return engine instanceof BonsaiEngine ? engine.runtime : null;
+}
+
 /** Why a local model request from the renderer is refused. */
 const MESSAGE = {
   unknownProvider: "Unknown coding provider",
@@ -117,13 +123,9 @@ export function registerModelsIpc(
     return true;
   });
 
-  handle("studio:model-install.status", async () => {
-    const engine = core.engines.has(EngineId.Bonsai) ? core.engines.get(EngineId.Bonsai) : null;
-    return engine instanceof BonsaiEngine ? engine.runtime.installStatus() : null;
-  });
+  handle("studio:model-install.status", async () => bonsaiRuntime(core.engines)?.installStatus() ?? null);
   handle("studio:cancel-model-download", async () => {
-    const engine = core.engines.has(EngineId.Bonsai) ? core.engines.get(EngineId.Bonsai) : null;
-    if (engine instanceof BonsaiEngine) engine.runtime.cancelInstall();
+    bonsaiRuntime(core.engines)?.cancelInstall();
     return true;
   });
   // Add from Ollama: size one exact tag from the public registry, then judge it with the same fit rule.
