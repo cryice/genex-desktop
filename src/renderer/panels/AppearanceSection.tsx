@@ -28,6 +28,7 @@ import {
   type ThemeSelection,
 } from "../appearance/themes.ts";
 import { useAppearance } from "../appearance/store.ts";
+import { currentLanguage, isLanguageCode, LANGUAGES, setLanguage, useTranslation } from "../i18n/index.ts";
 import { HomeBackdropSection } from "./HomeBackdropSection.tsx";
 import { Button } from "../ui/Button.tsx";
 import { Icon } from "../ui/icons.tsx";
@@ -661,6 +662,10 @@ function TypographySection() {
 }
 export function AppearanceSection() {
   const { appearance, scheme, error, update } = useAppearance();
+  const { t } = useTranslation();
+  const onLanguage = (value: string) => {
+    if (isLanguageCode(value)) setLanguage(value);
+  };
   const light = paletteFor(appearance, Scheme.Light);
   const dark = paletteFor(appearance, Scheme.Dark);
   return (
@@ -678,6 +683,18 @@ export function AppearanceSection() {
           ? `Follows your Mac. ${MODE_LABEL[scheme]} theme is active.`
           : "Changes apply immediately and save on this Mac."}
       </p>
+      <fieldset className="appearance-modes">
+        <legend>{t("settings.language")}</legend>
+        <div className="appearance-mode-options">
+          <Choice
+            label={t("settings.language")}
+            value={currentLanguage()}
+            options={LANGUAGES.map((language) => ({ value: language.code, label: language.label }))}
+            onChange={onLanguage}
+          />
+        </div>
+      </fieldset>
+      <p className="appearance-hint">{t("settings.languageHint")}</p>
       <HomeBackdropSection />
       <ThemeEditor scheme={Scheme.Light} />
       <ThemeEditor scheme={Scheme.Dark} />

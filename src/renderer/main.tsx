@@ -18,6 +18,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ErrorBoundary } from "./ErrorBoundary.tsx";
 import { initializeAppearance } from "./appearance/store.ts";
+import { initializeI18n } from "./i18n/index.ts";
 import { installMotionRest } from "./motion-rest.ts";
 import { BootRoot } from "./SandboxSetup.tsx";
 import { createBoot } from "./state/boot.ts";
@@ -26,6 +27,7 @@ import { syncWindowControls } from "./window-controls.ts";
 import { MINUTE_MS } from "../shared/duration.ts";
 
 initializeAppearance();
+void initializeI18n();
 installMotionRest();
 
 // React's development build (watch and owned development builds; scripts/renderer-build.mjs)

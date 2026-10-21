@@ -78,7 +78,9 @@
     "@anthropic-ai/sandbox-runtime": "^0.0.73",
     "@genex-ai/cli-demo": "1.36.11",
     "@modelcontextprotocol/sdk": "1.30.0",
+    "i18next": "^26.5.4",
     "node-pty": "1.1.0",
+    "react-i18next": "^17.1.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

@@ -15,6 +15,7 @@ import { AboutSection } from "./AboutSection.tsx";
 import { AccountSection, AccountSignOut } from "./AccountSection.tsx";
 import { usePeople } from "../state/hooks.ts";
 import { ABOUT_WORDS, ACCOUNT_WORDS, PRIVACY_WORDS, STORAGE_WORDS } from "../words.ts";
+import { useTranslation, type TFunction } from "../i18n/index.ts";
 
 interface SectionTab {
   id: SettingsSection;
@@ -22,23 +23,27 @@ interface SectionTab {
   icon: IconName;
 }
 
-const SECTIONS: readonly SectionTab[] = [
-  { id: SettingsSection.Account, label: ACCOUNT_WORDS.tab, icon: "character" },
-  { id: SettingsSection.Providers, label: "Model Providers", icon: "globe" },
-  { id: SettingsSection.Local, label: "Local Models", icon: "box" },
-  { id: SettingsSection.Appearance, label: "Appearance", icon: "palette" },
-  { id: SettingsSection.Games, label: "Games", icon: "folder" },
-  { id: SettingsSection.Storage, label: STORAGE_WORDS.tab, icon: "drive" },
-  { id: SettingsSection.Harness, label: "Harness", icon: "harness" },
-  { id: SettingsSection.Permissions, label: "Permissions", icon: "shield" },
-  { id: SettingsSection.Privacy, label: PRIVACY_WORDS.tab, icon: "eye" },
-  { id: SettingsSection.About, label: ABOUT_WORDS.tab, icon: "info" },
-];
+/** The tabs in order, their labels in the language on screen. Tabs whose label is a `words.ts`
+ * vocabulary (Account, Storage, Privacy, About) keep it for now; the rest read from i18n. */
+function sections(t: TFunction): readonly SectionTab[] {
+  return [
+    { id: SettingsSection.Account, label: ACCOUNT_WORDS.tab, icon: "character" },
+    { id: SettingsSection.Providers, label: t("settings.tab.providers"), icon: "globe" },
+    { id: SettingsSection.Local, label: t("settings.tab.local"), icon: "box" },
+    { id: SettingsSection.Appearance, label: t("settings.tab.appearance"), icon: "palette" },
+    { id: SettingsSection.Games, label: t("settings.tab.games"), icon: "folder" },
+    { id: SettingsSection.Storage, label: STORAGE_WORDS.tab, icon: "drive" },
+    { id: SettingsSection.Harness, label: t("settings.tab.harness"), icon: "harness" },
+    { id: SettingsSection.Permissions, label: t("settings.tab.permissions"), icon: "shield" },
+    { id: SettingsSection.Privacy, label: PRIVACY_WORDS.tab, icon: "eye" },
+    { id: SettingsSection.About, label: ABOUT_WORDS.tab, icon: "info" },
+  ];
+}
 
 /** A section's title: Genex account says "Sign in to Genex" while there is no account to show. */
-function sectionTitle(section: SettingsSection, signedIn: boolean): string | undefined {
+function sectionTitle(section: SettingsSection, signedIn: boolean, tabs: readonly SectionTab[]): string | undefined {
   if (section === SettingsSection.Account && !signedIn) return ACCOUNT_WORDS.signInTitle;
-  return SECTIONS.find((tab) => tab.id === section)?.label;
+  return tabs.find((tab) => tab.id === section)?.label;
 }
 
 /** The tab a key moves to from the tab at `index`: first, last, next or previous (wrapping), or none. */
@@ -115,9 +120,11 @@ export function SettingsDialog({
     return () => media.removeEventListener("change", update);
   }, []);
   const signedIn = usePeople((s) => s.me !== null);
+  const { t } = useTranslation();
+  const tabs = sections(t);
   const selectedTab = useRef<HTMLButtonElement>(null);
   const navigate = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
-    const next = tabAfterKey(SECTIONS, event.key, index);
+    const next = tabAfterKey(tabs, event.key, index);
     if (!next) return;
     event.preventDefault();
     onSection(next.id);
@@ -125,7 +132,7 @@ export function SettingsDialog({
   };
   return (
     <DialogSurface
-      title="Settings"
+      title={t("settings.title")}
       size="2xl"
       testId="settings-dialog"
       headerHidden
@@ -136,17 +143,19 @@ export function SettingsDialog({
     >
       <div className="settings-layout flex min-h-0 min-w-0 max-sm:flex-col">
         <nav
-          aria-label="Settings sections"
+          aria-label={t("settings.sectionsAria")}
           className="flex shrink-0 gap-1 border-border/75 bg-(--sidebar) p-3 max-sm:overflow-x-auto max-sm:border-b max-sm:pr-14 sm:w-52 sm:flex-col sm:border-r sm:pb-6"
         >
-          <p className="px-3 pt-1 pb-2 font-mono text-micro text-muted-foreground max-sm:hidden">Settings</p>
+          <p className="px-3 pt-1 pb-2 font-mono text-micro text-muted-foreground max-sm:hidden">
+            {t("settings.title")}
+          </p>
           <div
             role="tablist"
-            aria-label="Settings sections"
+            aria-label={t("settings.sectionsAria")}
             aria-orientation={horizontal ? "horizontal" : "vertical"}
             className="flex gap-1 sm:flex-col"
           >
-            {SECTIONS.map((tab, index) => (
+            {tabs.map((tab, index) => (
               <button
                 key={tab.id}
                 id={`settings-tab-${tab.id}`}
@@ -168,7 +177,7 @@ export function SettingsDialog({
         </nav>
         <div className="settings-content flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="mt-3.5 flex min-h-8 shrink-0 items-center gap-3 ps-5 pe-14">
-            <h2 className="text-lg font-medium text-foreground">{sectionTitle(section, signedIn)}</h2>
+            <h2 className="text-lg font-medium text-foreground">{sectionTitle(section, signedIn, tabs)}</h2>
             {section === SettingsSection.Account && signedIn && <AccountSignOut />}
           </div>
           <div
