@@ -82,6 +82,7 @@ describe("engines", () => {
         EngineId.OpenCode,
         EngineId.OpenRouter,
         EngineId.DeepSeek,
+        EngineId.InLink,
         EngineId.LocalServer,
       ],
     );

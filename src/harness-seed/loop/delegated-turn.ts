@@ -61,7 +61,7 @@ import {
   turnHeldLine,
   waitReady,
 } from "./hooks.ts";
-import { EngineFailure, StopReason } from "./outage.ts";
+import { EngineFailure, isProviderRefusal, StopReason } from "./outage.ts";
 import { HostMethod } from "./host-methods.ts";
 import { StudioContract } from "./page-contract.ts";
 import { EventKind, RunEvent } from "./run-events.ts";
@@ -121,8 +121,13 @@ export const SERVES_AFTER_LOOP_RUN = true;
  */
 export const SERVES_REOPEN = true;
 
-/** "claude-code is throttled (usage limit reached)": an engine's outage, as a fallback names it. */
+/**
+ * "claude-code is throttled (usage limit reached)": an engine's outage, as a fallback names it. A
+ * request the model itself cannot run is never called an outage — nothing is wrong with the
+ * provider, and the engine's own words already say what has to change.
+ */
 function outageWords(engine: string, kind: string, detail: string | undefined): string {
+  if (isProviderRefusal(detail)) return `${engine} could not run this turn (${detail})`;
   return `${engine} is ${kind === EngineFailure.RateLimit ? "throttled" : "unreachable"} (${detail ?? kind})`;
 }
 
@@ -141,7 +146,9 @@ const MESSAGE = {
   continuingChatOn: (engine: string, kind: string, detail: string | undefined, next: string) =>
     `${outageWords(engine, kind, detail)} — continuing on ${next}.`,
   notSwitched: (engine: string, kind: string, detail: string | undefined) =>
-    `${engine} is ${kind === EngineFailure.RateLimit ? "throttled right now" : "unreachable"} (${detail ?? kind}). I didn't switch to another model — wait a bit and resend, or pick a different engine.`,
+    isProviderRefusal(detail)
+      ? `${outageWords(engine, kind, detail)}. I didn't switch to another model — change what it names, or pick a different engine and resend.`
+      : `${engine} is ${kind === EngineFailure.RateLimit ? "throttled right now" : "unreachable"} (${detail ?? kind}). I didn't switch to another model — wait a bit and resend, or pick a different engine.`,
   stopped: "Stopped. Finished edits are preserved; send a message to continue.",
   /** Loop allowed the finished build to go on, and the session made the change itself. */
   madeDirectly: "Small change — made directly, no build.",

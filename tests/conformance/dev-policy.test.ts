@@ -15,6 +15,7 @@ import { ClaudeCodeEngine } from "../../src/substrate/engines/claude-code.ts";
 import { OpenCodeEngine } from "../../src/substrate/engines/opencode.ts";
 import { OpenRouterEngine } from "../../src/substrate/engines/openrouter.ts";
 import { DeepSeekEngine } from "../../src/substrate/engines/deepseek.ts";
+import { InLinkEngine } from "../../src/substrate/engines/inlink.ts";
 import { LocalServerEngine } from "../../src/substrate/engines/local-server.ts";
 test("pre-init injection avoids every real engine status/models/auth probe and keeps sandbox enabled", async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "dev-policy-"));
@@ -25,6 +26,7 @@ test("pre-init injection avoids every real engine status/models/auth probe and k
     OpenCodeEngine.prototype,
     OpenRouterEngine.prototype,
     DeepSeekEngine.prototype,
+    InLinkEngine.prototype,
     LocalServerEngine.prototype,
   ])
     for (const key of ["status", "models", "probeAuth"])
@@ -47,8 +49,8 @@ test("pre-init injection avoids every real engine status/models/auth probe and k
   });
   await core.start();
   assert.equal(core.host.state, "ready");
-  // Flipped (OpenCode, OpenRouter, DeepSeek, a local server): seven scripted engines, never a real one.
-  assert.equal((await core.engines.describe()).length, 7);
+  // Flipped (OpenCode, OpenRouter, DeepSeek, inLink, a local server): eight scripted engines, never a real one.
+  assert.equal((await core.engines.describe()).length, 8);
   assert.equal(core.sandbox.enabled, true);
   await core.updateSettings({ architect: true });
   let calls = 0;

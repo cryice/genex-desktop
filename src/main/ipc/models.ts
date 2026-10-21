@@ -24,6 +24,7 @@ const REFRESHABLE: ReadonlySet<string> = new Set([
   EngineId.OpenCode,
   EngineId.OpenRouter,
   EngineId.DeepSeek,
+  EngineId.InLink,
   EngineId.LocalServer,
 ]);
 /** The engines with no subscription sign-in: a recheck reads their models (and status) again. */
@@ -31,10 +32,11 @@ const RECHECKED_BY_MODELS: readonly string[] = [
   EngineId.OpenCode,
   EngineId.OpenRouter,
   EngineId.DeepSeek,
+  EngineId.InLink,
   EngineId.LocalServer,
 ];
 
-/** An engine whose API key is pasted in Settings (OpenRouter, DeepSeek). */
+/** An engine whose API key is pasted in Settings (OpenRouter, DeepSeek, inLink). */
 interface ApiKeyEngine {
   saveKey(value: unknown): Promise<EngineStatus>;
   clearKey(): Promise<EngineStatus>;
@@ -49,6 +51,7 @@ const MESSAGE = {
   unknownProvider: "Unknown coding provider",
   noKeyEngine: "OpenRouter is unavailable",
   noDeepSeekEngine: "DeepSeek is unavailable",
+  noInLinkEngine: "inLink is unavailable",
   noLocalServer: "Local servers are unavailable",
   bonsaiUnavailable: "Bonsai runtime is unavailable",
   noModel: "Name the model to delete",
@@ -84,6 +87,7 @@ export function registerModelsIpc(
   });
   registerApiKeyIpc(handle, { core, pushUiEvent, openRouterLogin });
   registerDeepSeekKeyIpc(handle, { core, pushUiEvent });
+  registerInLinkKeyIpc(handle, { core, pushUiEvent });
   registerLocalServerIpc(handle, { core, pushUiEvent });
   // The composer's plan limits: every signed-in subscription, read without starting a turn.
   handle("studio:provider-usage", async () => {
@@ -227,6 +231,27 @@ function registerDeepSeekKeyIpc(
   handle("studio:deepseek.key.clear", async () => {
     const status = await keyEngine().clearKey();
     pushUiEvent({ type: UiEvent.EnginesChanged, payload: { engine: EngineId.DeepSeek } });
+    return status;
+  });
+}
+
+/**
+ * The inLink key, pasted in Settings: checked with the gateway, kept in the OS secret store, never
+ * sent back. The gateway has no browser sign-in, so there are only these two channels.
+ */
+function registerInLinkKeyIpc(
+  handle: IpcHandle,
+  { core, pushUiEvent }: Pick<ModelsIpcDeps, "core" | "pushUiEvent">,
+): void {
+  const keyEngine = (): ApiKeyEngine => pastedKeyEngine(core, EngineId.InLink, MESSAGE.noInLinkEngine);
+  handle("studio:inlink.key.save", async (payload) => {
+    const status = await keyEngine().saveKey(payload?.key);
+    pushUiEvent({ type: UiEvent.EnginesChanged, payload: { engine: EngineId.InLink } });
+    return status;
+  });
+  handle("studio:inlink.key.clear", async () => {
+    const status = await keyEngine().clearKey();
+    pushUiEvent({ type: UiEvent.EnginesChanged, payload: { engine: EngineId.InLink } });
     return status;
   });
 }

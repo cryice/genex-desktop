@@ -2287,6 +2287,21 @@ export const METERED_PROVIDER_WORDS = {
     remove: "Remove key",
     cancel: "Cancel",
   },
+  inLink: {
+    name: "inLink",
+    keysUrl: "https://inlink.ccwork.com/web",
+    keyLabel: "inLink API key",
+    keyPlaceholder: "Paste your key",
+    save: "Save key",
+    getKey: "Get a key",
+    notConnectedLine: "Paste an API key from inLink's API Keys page. Requests are billed to it.",
+    connectedLine: "Billed by inLink",
+    refused: "inLink didn't accept that key. Check it and paste it again.",
+    replace: "Replace key…",
+    replaceLine: "The new key is checked before it's saved",
+    remove: "Remove key",
+    cancel: "Cancel",
+  },
 } as const;
 
 /** Settings → Model Providers: the person's own model server (`panels/LocalServerRow.tsx`). */

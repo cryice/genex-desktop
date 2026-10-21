@@ -220,6 +220,7 @@ export class LocalServerEngine implements Engine {
       contextWindow: (model) => this.#row(model)?.contextWindow ?? 0,
       // A build worker writes whole modules: ask for what the model can write, not the studio's ceiling.
       replyTokens: (model) => this.#row(model)?.maxTokens ?? DEFAULT_SESSION_REPLY_TOKENS,
+      seesImages: (model) => this.#row(model)?.supportsVision !== false,
       toolPath: options.toolPath,
     });
   }

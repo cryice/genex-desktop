@@ -39,6 +39,9 @@ const NATIVE_CHANNELS = [
   // OpenRouter's is; forgetting it deletes it there. A fixture profile has no key and no network.
   "studio:deepseek.key.save",
   "studio:deepseek.key.clear",
+  // inLink's key is checked with the gateway and kept in the OS secret store, as theirs are.
+  "studio:inlink.key.save",
+  "studio:inlink.key.clear",
   // The browser sign-in opens OpenRouter in the person's browser, listens on a loopback port and
   // redeems the code with OpenRouter; opening its page again is the browser too.
   "studio:openrouter.signin",

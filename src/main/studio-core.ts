@@ -94,10 +94,12 @@ import { OpenCodeEngine } from "../substrate/engines/opencode.ts";
 import { LOCK_RECOVERY_DIR } from "../substrate/engines/ownership-locks.ts";
 import { OpenRouterEngine } from "../substrate/engines/openrouter.ts";
 import { DeepSeekEngine } from "../substrate/engines/deepseek.ts";
+import { InLinkEngine } from "../substrate/engines/inlink.ts";
 import { LocalServerEngine } from "../substrate/engines/local-server.ts";
 import { serverSettings } from "../substrate/local-server/settings.ts";
 import {
   DEEPSEEK_KEY_SECRET,
+  INLINK_KEY_SECRET,
   LOCAL_SERVER_KEY_SECRET,
   OPENROUTER_KEY_SECRET,
   secretKeyStore,
@@ -1372,6 +1374,7 @@ export class StudioCore {
       EngineId.OpenCode,
       EngineId.OpenRouter,
       EngineId.DeepSeek,
+      EngineId.InLink,
     ]);
   }
 
@@ -1444,6 +1447,14 @@ export class StudioCore {
         protectedPaths: this.#protectedPaths(),
         toolPath: async () => (await this.sandbox.toolPath()) ?? process.env.PATH ?? "",
         keys: secretKeyStore(path.join(this.layout.secrets, "providers"), DEEPSEEK_KEY_SECRET),
+      }),
+      // inLink, the studio's internal LLM gateway, on the same pasted-key terms.
+      new InLinkEngine({
+        root: path.join(this.layout.engineHomes, EngineId.InLink),
+        scratchRoot: path.join(this.layout.scratch, EngineId.InLink),
+        protectedPaths: this.#protectedPaths(),
+        toolPath: async () => (await this.sandbox.toolPath()) ?? process.env.PATH ?? "",
+        keys: secretKeyStore(path.join(this.layout.secrets, "providers"), INLINK_KEY_SECRET),
       }),
     ];
   }

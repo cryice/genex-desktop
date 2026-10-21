@@ -168,9 +168,9 @@ second press joins it and every button follows it (`cli.install`). The page name
 the installer runs outside `ProcessSandbox` ([cli-installer.ts](../src/substrate/cli-installer.ts)).
 A failure says why; Settings then adds the vendor's install guide.
 
-## OpenRouter, DeepSeek and OpenCode
+## OpenRouter, DeepSeek, inLink and OpenCode
 
-All three are metered (`billing: "metered"` in `shared/providers.ts`): every token is paid to
+All four are metered (`billing: "metered"` in `shared/providers.ts`): every token is paid to
 someone, so `EngineRegistry` never offers one as a fallback or a first ready engine, and the
 sign-in gate's local finish and the reference judge never pick one. Only the person's explicit
 pick runs on them.
@@ -209,6 +209,42 @@ not in the list and are quoted in CNY, so the picker's price line is a small idl
 an id it does not list gets none; no dollar cost is claimed for a reply. DeepSeek picks no default
 model. Failures map as OpenRouter's do: 401/403 is a sign-in failure, 402 a usage limit, 429 a rate
 limit, and errors are redacted before they are logged.
+
+**inLink** ([inlink.ts](../src/substrate/engines/inlink.ts)) is the studio's internal LLM gateway,
+a direct engine on the same pi-ai path under inLink's own id, with the same pasted-key terms
+(`studio:inlink.key.save` / `.clear`, native; `inlink-api-key` in the same SecretStore folder). The
+gateway is OpenAI-compatible at `https://inlink.ccwork.com/llm-api/v1` and documents no `/models`,
+so the engine carries its own small model table — `qwen3.8-max` (the gateway's flagship, the id the
+studio builds on, and the row that reads images) and `deepseek-v4-pro` (which states none); a model
+the account's proxy exposes is one row away. Both pages state no window and no reply cap, so each row
+claims the same ceiling until one is known. The engine checks the key with the one endpoint the
+gateway does document — a one-token `POST /chat/completions`. 401/403 is a refusal; a 5xx or a
+failed connection is an outage; any other answer (a 200, or a complaint about the model) means the
+gateway read the key. That check is the one status probe in the app that spends anything, and it is
+cached for a minute. The gateway separates no reasoning: a thinking model writes its thinking into
+`content` between `<think>` and `</think>`, which is split out before the chat sees it
+([inline-thinking.ts](../src/substrate/local-server/inline-thinking.ts)). It is offered no reasoning
+dial, and no dollar cost is claimed for a reply.
+
+A session on a model that states no vision is handed no pixels, and is told the pictures exist
+instead ([local-session.ts](../src/substrate/engines/local-session.ts), the same rule the harness's
+own loop keeps in `loop/tool-loop.ts`). That is not a nicety: a screenshot a capture tool took stays
+in the session's history, an engine refuses a request carrying a picture its model cannot see before
+it reaches the provider, and so a resumed session used to be unable to run again — the turn died on
+"this model cannot see images". The same refusal is never read as an outage either
+(`loop/outage.ts` `isProviderRefusal`), so nothing waits out a provider that is not down.
+
+The gateway sits behind a Knownsec web firewall that reads every request body and answers 403 with
+its own HTML page when one reads as an attack — `<script>` tags, SQL, `../` paths, `eval(`. A game is
+HTML and JavaScript, so the studio's prompts, file contents and tool results carry those sooner or
+later: every build on this gateway meets it. A blocked request is therefore sent again with a gzipped
+body, which the firewall does not unpack and the gateway does; nothing is gzipped unless the plain
+request was blocked, so a gateway that would not unpack one is never sent one. Where that still fails
+— a gateway build that does not unpack one — the remedy is the gateway's own: `/llm-api` exempted
+from content inspection. The two 403s are told apart rather than confused: the gateway's own refusal
+is JSON (`application/json`, `X-Oneapi-Request-Id`), the firewall's page is HTML with no content
+type, and a blocked request is reported as that block — never as a key to replace, and never as a
+sign-in failure. A listed model whose name the account's proxy does not configure is refused by name.
 
 **OpenCode** ([opencode.ts](../src/substrate/engines/opencode.ts)) is a delegated engine that runs
 `opencode run --format json` with the brief on stdin, resumed by `--session`. Two command lines are

@@ -1,5 +1,5 @@
 /**
- * The API keys a person pastes into Settings (OpenRouter's, DeepSeek's, and their own model server's), one secret each in
+ * The API keys a person pastes into Settings (OpenRouter's, DeepSeek's, inLink's, and their own model server's), one secret each in
  * the OS secret store under `userData/secrets/providers/` — a folder no agent process may read
  * (`StudioCore#protectedPaths`). The key is read in main when a request is sent and never crosses
  * to the renderer, the harness, a model tool or a log.
@@ -10,6 +10,8 @@ import { SecretStore } from "./secrets.ts";
 export const OPENROUTER_KEY_SECRET = "openrouter-api-key";
 /** The secret DeepSeek's key is kept under. Stored on disk: never rename it. */
 export const DEEPSEEK_KEY_SECRET = "deepseek-api-key";
+/** The secret inLink's key is kept under. Stored on disk: never rename it. */
+export const INLINK_KEY_SECRET = "inlink-api-key";
 /** The secret a local server's API key is kept under. Stored on disk: never rename it. */
 export const LOCAL_SERVER_KEY_SECRET = "local-server-api-key";
 

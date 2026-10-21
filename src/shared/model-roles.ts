@@ -71,6 +71,7 @@ const SESSION_ENGINES: readonly string[] = [
   EngineId.OpenCode,
   EngineId.OpenRouter,
   EngineId.DeepSeek,
+  EngineId.InLink,
   EngineId.LocalServer,
 ];
 

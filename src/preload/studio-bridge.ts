@@ -388,6 +388,8 @@ function accountCalls(bridge: BridgeCalls) {
     openRouterSignInCancel: () => invoke("studio:openrouter.signin.cancel"),
     deepSeekKeySave: (key) => invoke("studio:deepseek.key.save", { key }),
     deepSeekKeyClear: () => invoke("studio:deepseek.key.clear"),
+    inLinkKeySave: (key) => invoke("studio:inlink.key.save", { key }),
+    inLinkKeyClear: () => invoke("studio:inlink.key.clear"),
     localServerConnect: (url, key) => invoke("studio:local-server.connect", key ? { url, key } : { url }),
     localServerForget: () => invoke("studio:local-server.forget"),
     localServerFind: () => invoke("studio:local-server.find"),

@@ -1,10 +1,10 @@
 /**
  * Settings → Model Providers, the metered rows: OpenCode, which signs in to providers itself in
- * Studio's terminal, and OpenRouter and DeepSeek, whose API keys are pasted here. Each row keeps
- * the shape of a subscription's (`ModelsSection.tsx`): one status plate, one line, at most one
- * visible action, an Account menu once connected, and the picker's model list under it. A pasted
- * key goes straight to main, which checks it with the provider and keeps it in the OS secret
- * store; it is never shown again, and the field forgets it the moment it is sent.
+ * Studio's terminal, and OpenRouter, DeepSeek and inLink, whose API keys are pasted here. Each row
+ * keeps the shape of a subscription's (`ModelsSection.tsx`): one status plate, one line, at most
+ * one visible action, an Account menu once connected, and the picker's model list under it. A
+ * pasted key goes straight to main, which checks it with the provider and keeps it in the OS
+ * secret store; it is never shown again, and the field forgets it the moment it is sent.
  */
 import { type JSX, lazy, Suspense, useEffect, useRef, useState } from "react";
 import { type EngineStatus, EngineStatusCode } from "../../shared/engine-descriptor.ts";
@@ -576,16 +576,142 @@ function DeepSeekRow({
   );
 }
 
+const INLINK_WORDS: ProviderWords = { name: WORDS.inLink.name, plans: "", guide: WORDS.inLink.keysUrl };
+
+/** The inLink key field: paste, save (checked by the gateway first), get a key, or cancel a replacement. */
+function InLinkKeyEntry({
+  saving,
+  onSave,
+  onCancel,
+}: {
+  saving: boolean;
+  onSave: (key: string) => Promise<void>;
+  onCancel: (() => void) | null;
+}): JSX.Element {
+  const [key, setKey] = useState("");
+  const save = async (): Promise<void> => {
+    const pasted = key;
+    // The field forgets the key the moment it is sent.
+    setKey("");
+    await onSave(pasted);
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <input
+        type="password"
+        aria-label={WORDS.inLink.keyLabel}
+        placeholder={WORDS.inLink.keyPlaceholder}
+        autoComplete="off"
+        spellCheck={false}
+        value={key}
+        disabled={saving}
+        onChange={(event) => setKey(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && key.trim()) void save();
+        }}
+        className="h-8 w-64 rounded-control border border-input bg-field px-2.5 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-accent-ink"
+      />
+      <Button variant="default" disabled={saving || !key.trim()} onClick={() => void save()}>
+        {saving ? WORDS.saving : WORDS.inLink.save}
+      </Button>
+      <Button onClick={() => void window.studio.openUrl(WORDS.inLink.keysUrl)}>{WORDS.inLink.getKey}</Button>
+      {onCancel && <Button onClick={onCancel}>{WORDS.inLink.cancel}</Button>}
+    </div>
+  );
+}
+
+/** inLink's row by its state: connected, waiting for a key, or unable to check. */
+function inLinkView(
+  status: EngineStatus,
+  act: { recheck: () => void; replace: () => void; remove: () => void },
+): RowView {
+  if (status.code === EngineStatusCode.Ready)
+    return {
+      tone: RowTone.Connected,
+      status: WORDS.connected,
+      line: WORDS.inLink.connectedLine,
+      actions: (
+        <AccountMenu name={WORDS.inLink.name} onCheck={act.recheck}>
+          <>
+            <DropdownMenuItem onSelect={act.replace}>
+              <ItemWords title={WORDS.inLink.replace} line={WORDS.inLink.replaceLine} />
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={act.remove}>{WORDS.inLink.remove}</DropdownMenuItem>
+          </>
+        </AccountMenu>
+      ),
+    };
+  if (status.code === EngineStatusCode.NeedsLogin)
+    return { tone: RowTone.Off, status: WORDS.notConnected, line: WORDS.inLink.notConnectedLine, actions: null };
+  return {
+    tone: RowTone.Danger,
+    status: WORDS.couldNotCheck,
+    line: status.detail,
+    actions: <Button onClick={act.recheck}>{WORDS.tryAgain}</Button>,
+  };
+}
+
+function InLinkRow({
+  engine,
+  onEnginesRefresh,
+}: { engine: EngineDescriptor } & Pick<MeteredProviderProps, "onEnginesRefresh">) {
+  const { run, error } = useRun();
+  const { checking, recheck } = useRecheck(EngineId.InLink, onEnginesRefresh);
+  const [replacing, setReplacing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [refused, setRefused] = useState(false);
+  const ready = engine.status.code === EngineStatusCode.Ready;
+  const save = (key: string): Promise<void> =>
+    run(async () => {
+      setSaving(true);
+      try {
+        const status = await window.studio.inLinkKeySave(key);
+        const accepted = status.code === EngineStatusCode.Ready;
+        setRefused(!accepted);
+        if (accepted) setReplacing(false);
+        await onEnginesRefresh();
+      } finally {
+        setSaving(false);
+      }
+    });
+  const view = inLinkView(engine.status, {
+    recheck: () => void run(recheck),
+    replace: () => setReplacing(true),
+    remove: () =>
+      void run(async () => {
+        await window.studio.inLinkKeyClear();
+        await onEnginesRefresh();
+      }),
+  });
+  const asksForKey = replacing || engine.status.code === EngineStatusCode.NeedsLogin;
+  return (
+    <ProviderCard
+      words={INLINK_WORDS}
+      engine={engine}
+      view={view}
+      checking={checking}
+      connected={ready && !replacing}
+      problem={error ?? (refused ? WORDS.inLink.refused : null)}
+    >
+      {asksForKey && (
+        <InLinkKeyEntry saving={saving} onSave={save} onCancel={replacing ? () => setReplacing(false) : null} />
+      )}
+    </ProviderCard>
+  );
+}
+
 /** The metered rows, under the subscriptions: each only when its engine is registered. */
 export function MeteredProviderRows({ engines, onEnginesRefresh }: MeteredProviderProps): JSX.Element {
   const openCode = engines.find((engine) => engine.id === EngineId.OpenCode);
   const openRouter = engines.find((engine) => engine.id === EngineId.OpenRouter);
   const deepSeek = engines.find((engine) => engine.id === EngineId.DeepSeek);
+  const inLink = engines.find((engine) => engine.id === EngineId.InLink);
   return (
     <>
       {openCode && <OpenCodeRow engine={openCode} onEnginesRefresh={onEnginesRefresh} />}
       {openRouter && <OpenRouterRow engine={openRouter} onEnginesRefresh={onEnginesRefresh} />}
       {deepSeek && <DeepSeekRow engine={deepSeek} onEnginesRefresh={onEnginesRefresh} />}
+      {inLink && <InLinkRow engine={inLink} onEnginesRefresh={onEnginesRefresh} />}
     </>
   );
 }

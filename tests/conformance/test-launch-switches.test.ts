@@ -10,6 +10,7 @@ import { test } from "node:test";
 import {
   linuxSecretStorageSwitches,
   quitsWhenLastWindowCloses,
+  restrictedEnvironmentChromiumSwitches,
   testLaunchChromiumSwitches,
 } from "../../src/main/dev/launch-flags.ts";
 
@@ -23,6 +24,22 @@ test("normal launches and other platforms add no Chromium switch", () => {
   assert.deepEqual(testLaunchChromiumSwitches({ platform: "win32", testLaunch: false }), []);
   assert.deepEqual(testLaunchChromiumSwitches({ platform: "darwin", testLaunch: true }), []);
   assert.deepEqual(testLaunchChromiumSwitches({ platform: "linux", testLaunch: true }), []);
+});
+
+// Chromium cannot start its own sandbox inside a nested sandbox, CI, or a headless box: the GPU and
+// network processes die ("sandbox initialization failed: Operation not permitted") and the app goes
+// with them. STUDIO_NO_SANDBOX opts into an unsandboxed, software-rendered boot; a normal launch
+// never sets it and keeps the sandbox.
+test("STUDIO_NO_SANDBOX opts a restricted environment into an unsandboxed software boot", () => {
+  assert.deepEqual(restrictedEnvironmentChromiumSwitches({ env: { STUDIO_NO_SANDBOX: "1" } }), [
+    ["no-sandbox", ""],
+    ["disable-gpu", ""],
+  ]);
+});
+
+test("a normal launch keeps Chromium's sandbox", () => {
+  assert.deepEqual(restrictedEnvironmentChromiumSwitches({ env: {} }), []);
+  assert.deepEqual(restrictedEnvironmentChromiumSwitches({ env: { STUDIO_NO_SANDBOX: "0" } }), []);
 });
 
 // Off macOS closing the last window quits the app. The self test destroys its window before it

@@ -135,6 +135,24 @@ export function linuxSecretStorageSwitches(launch: {
 }
 
 /**
+ * Switches that let the app boot where Chromium's own sandbox cannot start — a nested sandbox, CI,
+ * a headless box. There Chromium refuses to initialize its GPU and network sandboxes ("sandbox
+ * initialization failed: Operation not permitted") and dies on the GPU process; `--no-sandbox` runs
+ * the processes unsandboxed and `--disable-gpu` renders in software. Gated on `STUDIO_NO_SANDBOX`,
+ * which a normal launch never sets, so the app keeps its sandbox everywhere else.
+ */
+export function restrictedEnvironmentChromiumSwitches(launch: {
+  env: Record<string, string | undefined>;
+}): ChromiumSwitch[] {
+  return launch.env.STUDIO_NO_SANDBOX === "1"
+    ? [
+        ["no-sandbox", ""],
+        ["disable-gpu", ""],
+      ]
+    : [];
+}
+
+/**
  * Does closing the last window quit? Off macOS it does, except in a test launch: the self test
  * closes its window before it prints its report, and its runner decides when the app exits.
  */

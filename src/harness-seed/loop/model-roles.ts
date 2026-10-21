@@ -42,6 +42,7 @@ export const EngineId = {
   OpenCode: "opencode",
   OpenRouter: "openrouter",
   DeepSeek: "deepseek",
+  InLink: "inlink",
   LocalServer: "local-server",
 } as const;
 export type EngineId = (typeof EngineId)[keyof typeof EngineId];
@@ -64,6 +65,7 @@ const SESSION_ENGINES: readonly string[] = [
   EngineId.OpenCode,
   EngineId.OpenRouter,
   EngineId.DeepSeek,
+  EngineId.InLink,
   EngineId.LocalServer,
 ];
 

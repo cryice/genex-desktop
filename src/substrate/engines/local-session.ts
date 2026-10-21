@@ -128,6 +128,12 @@ export interface LocalSessionOptions {
    * of the studio's own ceiling (`DEFAULT_SESSION_REPLY_TOKENS`).
    */
   replyTokens?: number | ((model: string) => number);
+  /**
+   * Whether a model takes images. A model the engine does not describe is taken to, as the harness
+   * takes one (`harness-seed/loop/tool-loop.ts`): a session on a model that cannot see is told the
+   * pictures exist instead of being handed pixels.
+   */
+  seesImages?: (model: string) => boolean;
   toolPath?: () => Promise<string>;
 }
 
@@ -139,6 +145,8 @@ interface LocalRun {
   model: string;
   /** The most tokens one reply of this session may take, from the model's own cap. */
   replyTokens: number;
+  /** Whether this session's model takes images; a model the engine does not describe is taken to. */
+  seesImages: boolean;
   cwd: string;
   id: string;
   signal: AbortSignal;
@@ -200,6 +208,14 @@ export class LocalSessions {
   replyTokensFor(model: string): number {
     const budget = this.options.replyTokens ?? DEFAULT_SESSION_REPLY_TOKENS;
     return typeof budget === "number" ? budget : budget(model);
+  }
+
+  /**
+   * Whether the model this session runs takes images. A model the engine does not describe is taken
+   * to see them, the harness's own rule (`loop/tool-loop.ts` `seesImages`).
+   */
+  seesImagesFor(model: string): boolean {
+    return this.options.seesImages?.(model) !== false;
   }
 
   /** Run (or resume) one session to its ending. */
@@ -357,6 +373,7 @@ export class LocalSessions {
       request,
       model,
       replyTokens: this.replyTokensFor(model),
+      seesImages: this.seesImagesFor(model),
       cwd,
       id,
       signal,
@@ -476,7 +493,7 @@ export class LocalSessions {
     }
     // Complete every tool reply before adding the user image message.
     if (roundImages.length) {
-      addRoundImages(run.messages, roundImages);
+      addRoundImages(run, roundImages);
       await run.save();
     }
     return null;
@@ -675,7 +692,7 @@ function completionRequest(run: LocalRun): CompleteRequest {
     model: run.model,
     signal: run.signal,
     systemPrompt: run.system,
-    messages: run.messages,
+    messages: run.seesImages ? run.messages : messagesWithoutPictures(run),
     // Plan offers no tool that changes anything; a call to one is refused all the same (`permitCall`).
     tools:
       run.mode === PermissionMode.Plan ? run.definitions.filter((t) => !changesSomething(t.name)) : run.definitions,
@@ -690,6 +707,22 @@ function completionRequest(run: LocalRun): CompleteRequest {
       }),
     onDelta: (delta) => request.onEvent?.({ type: DelegateEventType.TextDelta, payload: { streamId, delta } }),
   };
+}
+
+/**
+ * The history as a session whose model cannot see images reads it: the pixels are left behind and
+ * the session is told they exist, its rule from the harness (`loop/tool-loop.ts` `withPictures`).
+ * An engine refuses a request that carries a picture its model cannot see — a screenshot a tool
+ * took stays in the history, so every later turn of that session would be refused, and a session
+ * that cannot run at all is what a person sees as a build that never starts.
+ */
+function messagesWithoutPictures(run: LocalRun): Message[] {
+  const held = run.messages.reduce((count, message) => count + (message.images?.length ?? 0), 0);
+  if (!held) return run.messages;
+  return [
+    ...run.messages.map(({ images: _images, ...message }) => message),
+    { role: "user", content: LOCAL_NOTE.blindImages },
+  ];
 }
 
 /** The message that stands for everything a compaction cut. */
@@ -801,9 +834,16 @@ async function checkProgress(run: LocalRun, calls: ToolCall[]): Promise<Delegate
 
 /**
  * A live screen supersedes earlier tool screenshots. Keep the user's original reference images;
- * do not let repeated looks fill the working context.
+ * do not let repeated looks fill the working context. A session whose model cannot see images is
+ * told the screenshots exist and keeps none: pixels it can never be shown would only weigh down
+ * the session file, and a request that carries one is refused by its own engine.
  */
-function addRoundImages(messages: Message[], roundImages: NonNullable<Message["images"]>): void {
+function addRoundImages(run: LocalRun, roundImages: NonNullable<Message["images"]>): void {
+  if (!run.seesImages) {
+    run.messages.push({ role: "user", content: LOCAL_NOTE.blindImages });
+    return;
+  }
+  const { messages } = run;
   for (const m of messages.slice(1))
     if (isObservation(m) && m.images) {
       delete m.images;

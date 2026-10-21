@@ -230,6 +230,7 @@ import {
   hasFlag,
   linuxSecretStorageSwitches,
   quitsWhenLastWindowCloses,
+  restrictedEnvironmentChromiumSwitches,
   StudioFlag,
   testLaunchChromiumSwitches,
 } from "./dev/launch-flags.ts";
@@ -386,6 +387,12 @@ for (const [name, value] of linuxSecretStorageSwitches({
   hasPasswordStoreSwitch: app.commandLine.hasSwitch("password-store"),
 }))
   app.commandLine.appendSwitch(name, value);
+// A restricted environment (a nested sandbox, CI, a headless box) cannot start Chromium's own
+// sandbox; STUDIO_NO_SANDBOX opts into an unsandboxed, software-rendered boot there. A normal
+// launch leaves it unset and keeps the sandbox.
+for (const [name, value] of restrictedEnvironmentChromiumSwitches({ env: process.env }))
+  if (value) app.commandLine.appendSwitch(name, value);
+  else app.commandLine.appendSwitch(name);
 // Controlled read gates for the isolated UI acceptance only; never populated in normal use.
 const smokeReads: SmokeReadGates = {};
 const ollamaHost = flagValue(StudioFlag.OllamaHost);

@@ -1,7 +1,7 @@
 /**
  * The scripted engines of a fixture session: Ollama, Claude Code, Codex, OpenCode, OpenRouter,
- * DeepSeek and local server stand-ins that answer from fixed text, never reach an account, a key, a
- * server or the network, and start no vendor worker. Markers in
+ * DeepSeek, inLink and local server stand-ins that answer from fixed text, never reach an account,
+ * a key, a server or the network, and start no vendor worker. Markers in
  * the user's words (`fixture:pending`, `fixture:stream`, `fixture:plan`, …) choose the script.
  */
 import { ChatActivityPhase } from "../../shared/chat-activity.ts";
@@ -34,13 +34,15 @@ const FIXTURE_ENGINES = [
   EngineId.OpenCode,
   EngineId.OpenRouter,
   EngineId.DeepSeek,
+  EngineId.InLink,
   EngineId.LocalServer,
 ] as const;
-/** The fixture engines the studio's own loop drives: the local model, OpenRouter's and DeepSeek's APIs and a local server. */
+/** The fixture engines the studio's own loop drives: the local model, the metered APIs and a local server. */
 const DIRECT_FIXTURES: ReadonlySet<string> = new Set([
   EngineId.Ollama,
   EngineId.OpenRouter,
   EngineId.DeepSeek,
+  EngineId.InLink,
   EngineId.LocalServer,
 ]);
 const READY_STATUS: EngineStatus = { code: EngineStatusCode.Ready, detail: "AG-933 fixture; no account or network" };
@@ -101,7 +103,7 @@ const LATEST_MESSAGE = "LATEST USER MESSAGE:\n";
 
 /**
  * First launch: an empty library, Claude Code waiting for a sign-in, Codex and OpenCode not
- * installed, OpenRouter and DeepSeek with no key, and no local server.
+ * installed, OpenRouter, DeepSeek and inLink with no key, and no local server.
  */
 export const FIRST_LAUNCH_STATUS: Record<string, EngineStatus> = {
   [EngineId.ClaudeCode]: {
@@ -112,6 +114,7 @@ export const FIRST_LAUNCH_STATUS: Record<string, EngineStatus> = {
   [EngineId.OpenCode]: { code: EngineStatusCode.NotInstalled, detail: "AG-933 fixture; no OpenCode CLI" },
   [EngineId.OpenRouter]: { code: EngineStatusCode.NeedsLogin, detail: "AG-933 fixture; no OpenRouter key" },
   [EngineId.DeepSeek]: { code: EngineStatusCode.NeedsLogin, detail: "AG-933 fixture; no DeepSeek key" },
+  [EngineId.InLink]: { code: EngineStatusCode.NeedsLogin, detail: "AG-933 fixture; no inLink key" },
   [EngineId.LocalServer]: NO_LOCAL_SERVER,
 };
 

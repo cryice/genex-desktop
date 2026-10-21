@@ -132,7 +132,7 @@ scope: Codex's cover pre-existing files, never directories; the Claude hook matc
   own secrets are safeStorage ciphertext; the exposed material is other games, `~/.genex`, the
   borrowed Codex sign-in and the ordinary home folder. Running it under `ProcessSandbox` with
   deny-read is planned.
-- **OpenCode reads its sign-ins; 2.x's server is unsandboxed** ([details](../connections-and-context.md#openrouter-deepseek-and-opencode)).
+- **OpenCode reads its sign-ins; 2.x's server is unsandboxed** ([details](../connections-and-context.md#openrouter-deepseek-inlink-and-opencode)).
 - **An install briefly opens the npm registry to every sandboxed process.** sandbox-runtime's
   proxy filters against one process-wide allow-list, so `ProcessSandbox.run` widens it for an
   install's length (counted, restored in `finally`). The Install packages button, `genex__package`

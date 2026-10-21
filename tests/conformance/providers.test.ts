@@ -78,6 +78,7 @@ describe("provider table", () => {
     assert.equal(loginKind("opencode"), "cli", "OpenCode runs its own sign-in in the terminal");
     assert.equal(loginKind("openrouter"), "none", "OpenRouter's key is pasted in Settings");
     assert.equal(loginKind("deepseek"), "none", "DeepSeek's key is pasted in Settings");
+    assert.equal(loginKind("inlink"), "none", "inLink's key is pasted in Settings");
     assert.equal(loginKind("local-server"), "none", "a local server's address and key are typed in Settings");
     assert.equal(loginKind("gemini-cli"), "none");
     assert.equal(providerInfo("gemini-cli"), undefined);
@@ -94,10 +95,11 @@ describe("provider table", () => {
       opencode: "metered",
       openrouter: "metered",
       deepseek: "metered",
+      inlink: "metered",
       // Flipped (a local server): a server the person runs is local, never metered.
       "local-server": "local",
     });
-    for (const id of ["openrouter", "opencode", "deepseek"]) assert.equal(isMetered(id), true, id);
+    for (const id of ["openrouter", "opencode", "deepseek", "inlink"]) assert.equal(isMetered(id), true, id);
     for (const id of ["bonsai", "ollama", "local-server"]) assert.equal(isLocalEngine(id), true, id);
     for (const id of ["claude-code", "codex", "gemini-cli", "constructor", null, undefined]) {
       assert.equal(isMetered(id), false, String(id));
