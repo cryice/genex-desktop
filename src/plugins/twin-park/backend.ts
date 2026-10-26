@@ -11,6 +11,7 @@ import {
   type IrBrief,
   type IrBuildingOutline,
   type IrEnvironment,
+  type IrDataSource,
   type IrField,
   type IrMasterPlan,
   type IrObject,
@@ -30,6 +31,7 @@ import {
   isTwinSceneClass,
   isTwinElement,
   isTwinObjectKind,
+  isTwinDataSourceKind,
   twinElementKind,
   TwinObjectKind,
   type TwinElement,
@@ -263,7 +265,7 @@ export function computeIrIssues(
   if (!park) issues.push({ code: "q0-no-park", message: "park.json 缺失" });
   else if (!isTwinSceneClass(park.sceneClass))
     issues.push({ code: "q0-bad-scene", message: MESSAGE.BadScene(park.sceneClass) });
-  else if (!(park.georef && park.georef.origin))
+  else if (!park.georef?.origin)
     issues.push({
       code: "q0-no-georef",
       message: "未设置地理参考（georeference）：当前为沙盘模式，非地理配准孪生",
@@ -698,6 +700,27 @@ function normalizeObjects(raw: unknown, styleVersion: string, operatorVersion: s
   return asArray(raw).map((entry, index) => normalizeObject(entry, index, styleVersion, operatorVersion));
 }
 
+/** Normalize external engineering inputs while preserving their validation state and provenance. */
+function normalizeDataSources(raw: unknown): IrDataSource[] {
+  return asArray(raw).flatMap((entry, index) => {
+    const source = asObject(entry) ?? {};
+    const kind = String(source.kind ?? "");
+    if (!isTwinDataSourceKind(kind)) return [];
+    return [
+      {
+        id: String(source.id ?? `source-${index + 1}`),
+        kind,
+        uri: String(source.uri ?? ""),
+        ...(typeof source.crs === "string" ? { crs: source.crs } : {}),
+        ...(typeof source.units === "string" ? { units: source.units } : {}),
+        ...(typeof source.version === "string" ? { version: source.version } : {}),
+        status: source.status === "validated" || source.status === "rejected" ? source.status : "pending",
+        issues: asStringArray(source.issues),
+      } satisfies IrDataSource,
+    ];
+  });
+}
+
 /** The Earth anchor, preferring an explicit environment origin, then the project's georef, then zero. */
 function originFrom(originRaw: Raw | null, georef: ParkFile["georef"] | undefined): IrEnvironment["origin"] {
   if (originRaw)
@@ -764,6 +787,7 @@ async function genIr(args: ToolArgs, ctx: PluginContext) {
     brief.zones.map((zone) => zone.id),
   );
   const objects = normalizeObjects(raw.objects, STYLE_VERSION, OPERATOR_VERSION);
+  const dataSources = normalizeDataSources(raw.dataSources);
   const environment = buildEnvironment(park?.georef, asObject(raw.environment));
   const program: IrProgram = {
     version: 1,
@@ -773,6 +797,7 @@ async function genIr(args: ToolArgs, ctx: PluginContext) {
     objects,
     styleGuide: DEFAULT_STYLE,
     environment,
+    ...(dataSources.length > 0 ? { dataSources } : {}),
   };
   if (!isIrProgram(program)) throw new Error("gen-ir: 生成的 IrProgram 结构不完整");
   const issues = irSelfConsistency(program).map((issue) => ({ code: `q1-${issue.code}`, message: issue.message }));
