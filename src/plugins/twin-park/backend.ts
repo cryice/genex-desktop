@@ -894,6 +894,11 @@ async function writeGodotExport(ctx: PluginContext): Promise<void> {
     "exports/godot/TwinRuntime.gd",
     `extends Node\n\n@export_file("*.json") var manifest_path := "../twin-export.json"\nvar twin_manifest: Dictionary = {}\n\nfunc _ready() -> void:\n    var file := FileAccess.open(manifest_path, FileAccess.READ)\n    if file:\n        twin_manifest = JSON.parse_string(file.get_as_text())\n`,
   );
+  await writeText(
+    ctx,
+    "exports/godot/TwinRuntime.tscn",
+    `[gd_scene load_steps=2 format=3]\n\n[ext_resource path="res://TwinRuntime.gd" type="Script" id="1"]\n\n[node name="TwinRuntime" type="Node"]\nscript = ExtResource("1")\n`,
+  );
 }
 
 /** Write an Unreal import descriptor without inventing engine-specific actor paths. */
@@ -906,6 +911,11 @@ async function writeUnrealExport(ctx: PluginContext): Promise<void> {
     importMode: "layered-usd",
     bindings: "../../twin_manifest.json",
   });
+  await writeText(
+    ctx,
+    "exports/unreal/README.md",
+    "# Twin Unreal export\n\nOpen this folder from the Unreal project importer, select `TwinImport.json`, then import the referenced OpenUSD layer. Keep Twin IR and the manifest as the source of truth.\n",
+  );
 }
 
 /** Write the Babylon preview contract consumed by the browser adapter. */
@@ -917,6 +927,11 @@ async function writeBabylonExport(ctx: PluginContext): Promise<void> {
     units: "meters",
     telemetry: { mode: "adapter", source: "twin_manifest.json" },
   });
+  await writeText(
+    ctx,
+    "exports/babylon/index.html",
+    `<!doctype html>\n<meta charset="utf-8">\n<title>Twin preview</title>\n<div id="status">Twin preview manifest: twin-preview.json</div>\n<script>fetch("twin-preview.json").then((r) => r.json()).then((m) => { document.querySelector("#status").textContent = "Twin preview ready: " + m.coordinateFrame + ", " + m.units; });</script>\n`,
+  );
 }
 
 /** Write a generated text file through the public project host service. */
