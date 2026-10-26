@@ -847,7 +847,53 @@ async function exportTarget(ctx: PluginContext) {
     generatedAt: new Date().toISOString(),
   };
   await writeJson(ctx, "exports/twin-export.json", manifest);
+  const selected = target as { renderer?: string };
+  if (selected.renderer === "godot") await writeGodotExport(ctx);
+  if (selected.renderer === "unreal") await writeUnrealExport(ctx);
+  if (selected.renderer === "babylon") await writeBabylonExport(ctx);
   return { ok: true, path: "exports/twin-export.json", target };
+}
+
+/** Write the small Godot runtime bridge; scene content remains generated from the manifest. */
+async function writeGodotExport(ctx: PluginContext): Promise<void> {
+  await writeText(
+    ctx,
+    "exports/godot/project.godot",
+    `[application]\nconfig/name="Twin Runtime"\nrun/main_scene="res://TwinRuntime.tscn"\n[display]\nwindow/size/viewport_width=1280\nwindow/size/viewport_height=720\n`,
+  );
+  await writeText(
+    ctx,
+    "exports/godot/TwinRuntime.gd",
+    `extends Node\n\n@export_file("*.json") var manifest_path := "../twin-export.json"\nvar twin_manifest: Dictionary = {}\n\nfunc _ready() -> void:\n    var file := FileAccess.open(manifest_path, FileAccess.READ)\n    if file:\n        twin_manifest = JSON.parse_string(file.get_as_text())\n`,
+  );
+}
+
+/** Write an Unreal import descriptor without inventing engine-specific actor paths. */
+async function writeUnrealExport(ctx: PluginContext): Promise<void> {
+  await writeJson(ctx, "exports/unreal/TwinImport.json", {
+    sourceManifest: "../twin-export.json",
+    usdLayer: "../../master_twin.usda",
+    coordinateFrame: "local-enu",
+    units: "meters",
+    importMode: "layered-usd",
+    bindings: "../../twin_manifest.json",
+  });
+}
+
+/** Write the Babylon preview contract consumed by the browser adapter. */
+async function writeBabylonExport(ctx: PluginContext): Promise<void> {
+  await writeJson(ctx, "exports/babylon/twin-preview.json", {
+    manifest: "../twin-export.json",
+    scene: "../../twin_manifest.json",
+    coordinateFrame: "local-enu",
+    units: "meters",
+    telemetry: { mode: "adapter", source: "twin_manifest.json" },
+  });
+}
+
+/** Write a generated text file through the public project host service. */
+async function writeText(ctx: PluginContext, file: string, text: string): Promise<void> {
+  await ctx.host(Host.ProjectWrite, { path: file, text });
 }
 
 /** The project output shape for one renderer target. */
