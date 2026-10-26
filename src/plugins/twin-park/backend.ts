@@ -88,6 +88,7 @@ const Tool = {
   IotBind: "iot-bind",
   ExportGlb: "export-glb",
   ConfigureTarget: "configure-target",
+  ExportTarget: "export-target",
 } as const;
 
 /** The runtime files new-park writes into a project (the Babylon preview, the scene and the catalog). */
@@ -831,6 +832,24 @@ async function configureTarget(args: ToolArgs, ctx: PluginContext) {
   return target;
 }
 
+/** Write an engine-neutral export manifest consumed by the selected renderer adapter. */
+async function exportTarget(ctx: PluginContext) {
+  const target = await readJson(ctx, "twin-target.json");
+  if (!target || typeof target !== "object") throw new Error("请先运行 configure-target 选择建模后端和渲染目标");
+  const ir = await readJson(ctx, "ir.json");
+  if (!ir || typeof ir !== "object") throw new Error("请先生成 ir.json");
+  const manifest = {
+    version: 1,
+    target,
+    source: { ir: "ir.json", usd: "master_twin.usda", manifest: "twin_manifest.json" },
+    coordinateFrame: "local-enu",
+    units: "meters",
+    generatedAt: new Date().toISOString(),
+  };
+  await writeJson(ctx, "exports/twin-export.json", manifest);
+  return { ok: true, path: "exports/twin-export.json", target };
+}
+
 /** The project output shape for one renderer target. */
 function rendererOutput(renderer: string): "web" | "godot-project" | "unreal-project" {
   if (renderer === "babylon") return "web";
@@ -878,6 +897,8 @@ export const activate: Activate = () => ({
         return exportGlb(args, ctx);
       case Tool.ConfigureTarget:
         return configureTarget(args, ctx);
+      case Tool.ExportTarget:
+        return exportTarget(ctx);
       default:
         throw new Error(MESSAGE.UnknownTool(name));
     }

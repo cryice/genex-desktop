@@ -286,6 +286,14 @@
           "renderer"
         ]
       }
+    },
+    {
+      "name": "export-target",
+      "description": "Write an engine-neutral export manifest after configure-target and IR generation.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
     }
   ],
   "nativeRuntimes": [
