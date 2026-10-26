@@ -846,6 +846,13 @@ async function exportTarget(ctx: PluginContext) {
     version: 1,
     target,
     source: { ir: "ir.json", usd: "master_twin.usda", manifest: "twin_manifest.json" },
+    data: {
+      sources: "data-sources.json",
+      telemetry: "ir.json#/telemetry",
+      alarms: "ir.json#/alarms",
+      commands: "ir.json#/commands",
+    },
+    capabilities: ["scene", "object-properties", "telemetry", "alarms", "commands"],
     coordinateFrame: "local-enu",
     units: "meters",
     generatedAt: new Date().toISOString(),
