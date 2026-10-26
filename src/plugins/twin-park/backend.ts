@@ -932,7 +932,41 @@ async function writeBabylonExport(ctx: PluginContext): Promise<void> {
   await writeText(
     ctx,
     "exports/babylon/index.html",
-    `<!doctype html>\n<meta charset="utf-8">\n<title>Twin preview</title>\n<div id="status">Twin preview manifest: twin-preview.json</div>\n<script>fetch("twin-preview.json").then((r) => r.json()).then((m) => { document.querySelector("#status").textContent = "Twin preview ready: " + m.coordinateFrame + ", " + m.units; });</script>\n`,
+    `<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Twin preview</title>
+<style>html,body,#renderCanvas{width:100%;height:100%;margin:0;overflow:hidden}#status{position:fixed;z-index:2;left:12px;top:10px;padding:6px 9px;border-radius:5px;background:#101827d9;color:#e8eef8;font:13px system-ui,sans-serif}</style>
+<div id="status">Twin preview loading…</div>
+<canvas id="renderCanvas"></canvas>
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script>
+  const canvas = document.querySelector('#renderCanvas');
+  const status = document.querySelector('#status');
+  const engine = new BABYLON.Engine(canvas, true);
+  const scene = new BABYLON.Scene(engine);
+  scene.clearColor = new BABYLON.Color4(0.04, 0.07, 0.12, 1);
+  const camera = new BABYLON.ArcRotateCamera('camera', -Math.PI / 2, 1.05, 120, BABYLON.Vector3.Zero(), scene);
+  camera.attachControl(canvas, true);
+  new BABYLON.HemisphericLight('sky', new BABYLON.Vector3(0, 1, 0), scene).intensity = 0.9;
+  function objectMesh(item) {
+    const ring = Array.isArray(item.worldOutline) ? item.worldOutline : [];
+    const xs = ring.map((p) => Number(p.x) || 0), zs = ring.map((p) => Number(p.y) || 0);
+    const width = Math.max(1, (Math.max(...xs, 1) - Math.min(...xs, 0)));
+    const depth = Math.max(1, (Math.max(...zs, 1) - Math.min(...zs, 0)));
+    const height = Math.max(1, Number(item.floors || 1) * Number(item.storeyM || 3));
+    const mesh = BABYLON.MeshBuilder.CreateBox(item.id || 'object', {width, depth, height}, scene);
+    mesh.position = new BABYLON.Vector3((Math.min(...xs, 0) + Math.max(...xs, 1)) / 2, height / 2, (Math.min(...zs, 0) + Math.max(...zs, 1)) / 2);
+    mesh.metadata = item;
+    return mesh;
+  }
+  Promise.all([fetch('twin-preview.json').then((r) => r.json()), fetch('../../twin_manifest.json').then((r) => r.json())])
+    .then(([preview, manifest]) => { (manifest.objects || []).forEach(objectMesh); status.textContent = 'Twin preview ready · ' + (manifest.objects || []).length + ' objects · ' + preview.coordinateFrame + ' · ' + preview.units; })
+    .catch((error) => { status.textContent = 'Twin preview error: ' + error.message; });
+  engine.runRenderLoop(() => scene.render());
+  addEventListener('resize', () => engine.resize());
+</script>
+`,
   );
 }
 
