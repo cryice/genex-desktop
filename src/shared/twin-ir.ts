@@ -215,6 +215,10 @@ export interface IrProgram {
   environment: IrEnvironment;
   /** External CIM/BIM/GIS/CAD/IoT inputs and their validation state. */
   dataSources?: readonly IrDataSource[];
+  /** Runtime observations kept separate from geometry and renderer state. */
+  telemetry?: readonly IrTelemetryPoint[];
+  alarms?: readonly IrAlarm[];
+  commands?: readonly IrCommand[];
   /** Optional device-to-scene bindings; written by `iot-bind` and read by the assemble operator. */
   bindings?: readonly IrBinding[];
 }
@@ -238,6 +242,37 @@ export interface IrBinding {
   target: string;
   /** When true the twin may also write the property back to the device (reverse control). */
   reverse?: boolean;
+}
+
+/** A normalized telemetry sample; adapters may fill quality according to their protocol. */
+export interface IrTelemetryPoint {
+  device: string;
+  property: string;
+  value: number | string | boolean | null;
+  unit?: string;
+  at: string;
+  quality: "good" | "uncertain" | "bad";
+}
+
+/** A normalized alarm independent of a renderer or vendor protocol. */
+export interface IrAlarm {
+  id: string;
+  device: string;
+  severity: "info" | "warning" | "critical";
+  message: string;
+  active: boolean;
+  at: string;
+}
+
+/** A user-authorized command request; adapters must audit and confirm writes. */
+export interface IrCommand {
+  id: string;
+  device: string;
+  property: string;
+  value: number | string | boolean | null;
+  requestedBy: string;
+  requestedAt: string;
+  status: "pending" | "confirmed" | "sent" | "rejected";
 }
 
 /** The issue codes the brief's self-consistency check reports (ARCH-01 Q1). */

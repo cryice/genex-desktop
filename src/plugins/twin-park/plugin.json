@@ -916,6 +916,16 @@
         "twin-city",
         "twin-workshop"
       ]
+    },
+    {
+      "name": "twin-operations",
+      "summary": "Telemetry, replay, alarms and permissioned commands for twin applications.",
+      "file": "skills/twin-operations.md",
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
     }
   ],
   "hooks": [
