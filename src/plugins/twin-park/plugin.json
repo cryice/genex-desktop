@@ -4,15 +4,38 @@
   "version": "0.1.0",
   "name": "Twin Park",
   "publisher": "Studio development",
-  "description": "Digital twin scenes (park, city, workshop): inputs become ParkProgram IR, deterministic operators rebuild layered USD, and one package serves UE5, the web and the business systems.",
+  "description": "Digital twin projects for CIM, BIM, GIS and IoT: Twin IR drives Blender/OpenUSD modeling and Babylon.js, Godot or Unreal applications.",
   "backend": "backend.mjs",
-  "capabilities": ["native-runtime", "project.read", "project.write", "jobs", "network", "settings", "observe"],
-  "detect": [{ "fact": "twin-park", "files": ["**/park.json"] }, { "fact": "twin-stage", "files": ["**/*.usd*"] }],
+  "capabilities": [
+    "native-runtime",
+    "project.read",
+    "project.write",
+    "jobs",
+    "network",
+    "settings",
+    "observe"
+  ],
+  "detect": [
+    {
+      "fact": "twin-park",
+      "files": [
+        "**/park.json"
+      ]
+    },
+    {
+      "fact": "twin-stage",
+      "files": [
+        "**/*.usd*"
+      ]
+    }
+  ],
   "engine": {
     "id": "babylon",
     "label": "Babylon.js",
     "fact": "twin-park",
-    "projectFiles": ["park.json"],
+    "projectFiles": [
+      "park.json"
+    ],
     "writesProjectFiles": false
   },
   "scaffolds": [
@@ -21,21 +44,42 @@
       "label": "数字孪生园区",
       "tool": "new-park",
       "game": true,
-      "facts": [{ "fact": "twin-park", "files": ["park.json"] }]
+      "facts": [
+        {
+          "fact": "twin-park",
+          "files": [
+            "park.json"
+          ]
+        }
+      ]
     },
     {
       "id": "city",
       "label": "数字孪生城市片区",
       "tool": "new-park",
       "game": true,
-      "facts": [{ "fact": "twin-city", "files": ["park.json"] }]
+      "facts": [
+        {
+          "fact": "twin-city",
+          "files": [
+            "park.json"
+          ]
+        }
+      ]
     },
     {
       "id": "workshop",
       "label": "数字孪生车间",
       "tool": "new-park",
       "game": true,
-      "facts": [{ "fact": "twin-workshop", "files": ["park.json"] }]
+      "facts": [
+        {
+          "fact": "twin-workshop",
+          "files": [
+            "park.json"
+          ]
+        }
+      ]
     }
   ],
   "tools": [
@@ -47,18 +91,27 @@
         "properties": {
           "sceneClass": {
             "type": "string",
-            "enum": ["park", "city", "workshop"],
+            "enum": [
+              "park",
+              "city",
+              "workshop"
+            ],
             "description": "Which scene class this project is."
           }
         },
-        "required": ["sceneClass"]
+        "required": [
+          "sceneClass"
+        ]
       }
     },
     {
       "name": "ir-check",
       "audience": "harness",
       "description": "Validate the project's ParkProgram IR: Q0 (manifest and stage present, scene class known) and Q1 self-consistency (ratios sum to 1, building counts agree, the tallest building's zone exists, conflicts carry questions). Run by the harness at run.prepare/checkpoint/finish; answers {block} to hold a moment back when the IR is inconsistent.",
-      "parameters": { "type": "object", "properties": {} }
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
     },
     {
       "name": "gen-ir",
@@ -72,13 +125,18 @@
             "properties": {}
           }
         },
-        "required": ["program"]
+        "required": [
+          "program"
+        ]
       }
     },
     {
       "name": "usd-info",
       "description": "Inspect twin runtime readiness (the Python with pxr, the DWG converter, Blender for GLB export) and what to tell the user when one is missing. No account, no spending.",
-      "parameters": { "type": "object", "properties": {} }
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
     },
     {
       "name": "gen-object",
@@ -86,30 +144,48 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "object": { "type": "string", "description": "The object id, e.g. B_0001." },
+          "object": {
+            "type": "string",
+            "description": "The object id, e.g. B_0001."
+          },
           "kind": {
             "type": "string",
-            "enum": ["building", "landmark", "asset"],
+            "enum": [
+              "building",
+              "landmark",
+              "asset"
+            ],
             "description": "Which operator builds it; default from the element."
           }
         },
-        "required": ["object"]
+        "required": [
+          "object"
+        ]
       }
     },
     {
       "name": "gen-site",
       "description": "Build the site layer (roads, kerbs, markings, landscape by difference, terrain) from the IR master plan's centerlines and plots.",
-      "parameters": { "type": "object", "properties": {} }
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
     },
     {
       "name": "scatter",
       "description": "Build the instancer layers (trees, shrubs, lamps, benches) from the IR scatter rules: one PointInstancer per element type, references to catalog prototypes, binding keys on devices.",
-      "parameters": { "type": "object", "properties": {} }
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
     },
     {
       "name": "assemble",
       "description": "Compose the delivery package: master_twin.usda with composition arcs and world transforms only, env and camera layers, twin_manifest.json, and the Q3 scene QA that blocks delivery.",
-      "parameters": { "type": "object", "properties": {} }
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
     },
     {
       "name": "georeference",
@@ -117,11 +193,23 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "lat": { "type": "number", "description": "Origin latitude in degrees." },
-          "lon": { "type": "number", "description": "Origin longitude in degrees." },
-          "heightM": { "type": "number", "description": "Origin height in metres." }
+          "lat": {
+            "type": "number",
+            "description": "Origin latitude in degrees."
+          },
+          "lon": {
+            "type": "number",
+            "description": "Origin longitude in degrees."
+          },
+          "heightM": {
+            "type": "number",
+            "description": "Origin height in metres."
+          }
         },
-        "required": ["lat", "lon"]
+        "required": [
+          "lat",
+          "lon"
+        ]
       }
     },
     {
@@ -130,15 +218,29 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "prim": { "type": "string", "description": "The prim path, e.g. /Park/Buildings/B_0001." },
-          "device": { "type": "string", "description": "The device id in the IoT gateway." },
-          "property": { "type": "string", "description": "The device property, e.g. brightness." },
+          "prim": {
+            "type": "string",
+            "description": "The prim path, e.g. /Park/Buildings/B_0001."
+          },
+          "device": {
+            "type": "string",
+            "description": "The device id in the IoT gateway."
+          },
+          "property": {
+            "type": "string",
+            "description": "The device property, e.g. brightness."
+          },
           "target": {
             "type": "string",
             "description": "What it drives, e.g. material.emissive, rotation.y, visibility."
           }
         },
-        "required": ["prim", "device", "property", "target"]
+        "required": [
+          "prim",
+          "device",
+          "property",
+          "target"
+        ]
       }
     },
     {
@@ -146,8 +248,15 @@
       "description": "Export one object's USD layer to GLB for the web route, through local Blender's USD importer. The GLB keeps the object's local origin and tags.",
       "parameters": {
         "type": "object",
-        "properties": { "object": { "type": "string", "description": "The object id whose layer is exported." } },
-        "required": ["object"]
+        "properties": {
+          "object": {
+            "type": "string",
+            "description": "The object id whose layer is exported."
+          }
+        },
+        "required": [
+          "object"
+        ]
       }
     }
   ],
@@ -163,7 +272,10 @@
         "/opt/homebrew/bin/python3"
       ],
       "version": {
-        "args": ["-c", "import pxr; print(getattr(pxr, '__version__', '26'))"],
+        "args": [
+          "-c",
+          "import pxr; print(getattr(pxr, '__version__', '26'))"
+        ],
         "pattern": "^\\d+\\.\\d+",
         "minimum": "24.11"
       }
@@ -177,7 +289,9 @@
         "setting:dwgProgram"
       ],
       "version": {
-        "args": ["--help"],
+        "args": [
+          "--help"
+        ],
         "pattern": "(?i)oda",
         "minimum": "0.0"
       }
@@ -193,7 +307,10 @@
         "opens:.blend/blender.exe"
       ],
       "version": {
-        "args": ["-b", "--version"],
+        "args": [
+          "-b",
+          "--version"
+        ],
         "pattern": "Blender (\\d+\\.\\d+\\.\\d+)",
         "minimum": "4.2.0"
       }
@@ -205,14 +322,27 @@
       "runtime": "py",
       "args": [
         "-u",
-        { "source": "package", "name": "jobs/solve_plan.py" },
+        {
+          "source": "package",
+          "name": "jobs/solve_plan.py"
+        },
         "--",
-        { "source": "input", "name": "ir.json" },
-        { "source": "output", "name": "master_plan.json" }
+        {
+          "source": "input",
+          "name": "ir.json"
+        },
+        {
+          "source": "output",
+          "name": "master_plan.json"
+        }
       ],
-      "inputs": ["ir.json"],
+      "inputs": [
+        "ir.json"
+      ],
       "values": {},
-      "outputs": ["master_plan.json"],
+      "outputs": [
+        "master_plan.json"
+      ],
       "timeoutMs": 60000,
       "maxOutputBytes": 64000,
       "maxAssetBytes": 1048576
@@ -222,15 +352,36 @@
       "runtime": "py",
       "args": [
         "-u",
-        { "source": "package", "name": "jobs/dwg_dxf.py" },
+        {
+          "source": "package",
+          "name": "jobs/dwg_dxf.py"
+        },
         "--",
-        { "source": "input", "name": "drawing.dwg" },
-        { "source": "output", "name": "drawing.dxf" },
-        { "source": "value", "name": "converter" }
+        {
+          "source": "input",
+          "name": "drawing.dwg"
+        },
+        {
+          "source": "output",
+          "name": "drawing.dxf"
+        },
+        {
+          "source": "value",
+          "name": "converter"
+        }
       ],
-      "inputs": ["drawing.dwg"],
-      "values": { "converter": { "pattern": "^[A-Za-z0-9_.:/\\\\ -]{1,400}$", "maxLength": 400 } },
-      "outputs": ["drawing.dxf"],
+      "inputs": [
+        "drawing.dwg"
+      ],
+      "values": {
+        "converter": {
+          "pattern": "^[A-Za-z0-9_.:/\\\\ -]{1,400}$",
+          "maxLength": 400
+        }
+      },
+      "outputs": [
+        "drawing.dxf"
+      ],
       "timeoutMs": 180000,
       "maxOutputBytes": 64000,
       "maxAssetBytes": 104857600
@@ -240,15 +391,32 @@
       "runtime": "py",
       "args": [
         "-u",
-        { "source": "package", "name": "jobs/dxf_ir.py" },
+        {
+          "source": "package",
+          "name": "jobs/dxf_ir.py"
+        },
         "--",
-        { "source": "input", "name": "ir.json" },
-        { "source": "input", "name": "drawing.dxf" },
-        { "source": "output", "name": "ir_fragments.json" }
+        {
+          "source": "input",
+          "name": "ir.json"
+        },
+        {
+          "source": "input",
+          "name": "drawing.dxf"
+        },
+        {
+          "source": "output",
+          "name": "ir_fragments.json"
+        }
       ],
-      "inputs": ["ir.json", "drawing.dxf"],
+      "inputs": [
+        "ir.json",
+        "drawing.dxf"
+      ],
       "values": {},
-      "outputs": ["ir_fragments.json"],
+      "outputs": [
+        "ir_fragments.json"
+      ],
       "timeoutMs": 120000,
       "maxOutputBytes": 256000,
       "maxAssetBytes": 10485760
@@ -258,15 +426,36 @@
       "runtime": "py",
       "args": [
         "-u",
-        { "source": "package", "name": "jobs/gen_object.py" },
+        {
+          "source": "package",
+          "name": "jobs/gen_object.py"
+        },
         "--",
-        { "source": "input", "name": "card.json" },
-        { "source": "output", "name": "object.usdc" },
-        { "source": "value", "name": "kind" }
+        {
+          "source": "input",
+          "name": "card.json"
+        },
+        {
+          "source": "output",
+          "name": "object.usdc"
+        },
+        {
+          "source": "value",
+          "name": "kind"
+        }
       ],
-      "inputs": ["card.json"],
-      "values": { "kind": { "pattern": "^(building|landmark|asset)$", "maxLength": 8 } },
-      "outputs": ["object.usdc"],
+      "inputs": [
+        "card.json"
+      ],
+      "values": {
+        "kind": {
+          "pattern": "^(building|landmark|asset)$",
+          "maxLength": 8
+        }
+      },
+      "outputs": [
+        "object.usdc"
+      ],
       "timeoutMs": 120000,
       "maxOutputBytes": 256000,
       "maxAssetBytes": 52428800
@@ -276,14 +465,27 @@
       "runtime": "py",
       "args": [
         "-u",
-        { "source": "package", "name": "jobs/gen_site.py" },
+        {
+          "source": "package",
+          "name": "jobs/gen_site.py"
+        },
         "--",
-        { "source": "input", "name": "ir.json" },
-        { "source": "output", "name": "site.usdc" }
+        {
+          "source": "input",
+          "name": "ir.json"
+        },
+        {
+          "source": "output",
+          "name": "site.usdc"
+        }
       ],
-      "inputs": ["ir.json"],
+      "inputs": [
+        "ir.json"
+      ],
       "values": {},
-      "outputs": ["site.usdc"],
+      "outputs": [
+        "site.usdc"
+      ],
       "timeoutMs": 120000,
       "maxOutputBytes": 256000,
       "maxAssetBytes": 52428800
@@ -293,14 +495,27 @@
       "runtime": "py",
       "args": [
         "-u",
-        { "source": "package", "name": "jobs/scatter.py" },
+        {
+          "source": "package",
+          "name": "jobs/scatter.py"
+        },
         "--",
-        { "source": "input", "name": "ir.json" },
-        { "source": "output", "name": "instancers.usdc" }
+        {
+          "source": "input",
+          "name": "ir.json"
+        },
+        {
+          "source": "output",
+          "name": "instancers.usdc"
+        }
       ],
-      "inputs": ["ir.json"],
+      "inputs": [
+        "ir.json"
+      ],
       "values": {},
-      "outputs": ["instancers.usdc"],
+      "outputs": [
+        "instancers.usdc"
+      ],
       "timeoutMs": 120000,
       "maxOutputBytes": 256000,
       "maxAssetBytes": 52428800
@@ -310,23 +525,71 @@
       "runtime": "py",
       "args": [
         "-u",
-        { "source": "package", "name": "jobs/assemble.py" },
+        {
+          "source": "package",
+          "name": "jobs/assemble.py"
+        },
         "--",
-        { "source": "input", "name": "ir.json" },
-        { "source": "output", "name": "master_twin.usda" },
-        { "source": "output", "name": "twin_manifest.json" },
-        { "source": "output", "name": "qa_report.json" },
-        { "source": "input", "name": "layer01" },
-        { "source": "input", "name": "layer02" },
-        { "source": "input", "name": "layer03" },
-        { "source": "input", "name": "layer04" },
-        { "source": "input", "name": "layer05" },
-        { "source": "input", "name": "layer06" },
-        { "source": "input", "name": "layer07" },
-        { "source": "input", "name": "layer08" },
-        { "source": "input", "name": "layer09" },
-        { "source": "input", "name": "layer10" },
-        { "source": "input", "name": "layer11" }
+        {
+          "source": "input",
+          "name": "ir.json"
+        },
+        {
+          "source": "output",
+          "name": "master_twin.usda"
+        },
+        {
+          "source": "output",
+          "name": "twin_manifest.json"
+        },
+        {
+          "source": "output",
+          "name": "qa_report.json"
+        },
+        {
+          "source": "input",
+          "name": "layer01"
+        },
+        {
+          "source": "input",
+          "name": "layer02"
+        },
+        {
+          "source": "input",
+          "name": "layer03"
+        },
+        {
+          "source": "input",
+          "name": "layer04"
+        },
+        {
+          "source": "input",
+          "name": "layer05"
+        },
+        {
+          "source": "input",
+          "name": "layer06"
+        },
+        {
+          "source": "input",
+          "name": "layer07"
+        },
+        {
+          "source": "input",
+          "name": "layer08"
+        },
+        {
+          "source": "input",
+          "name": "layer09"
+        },
+        {
+          "source": "input",
+          "name": "layer10"
+        },
+        {
+          "source": "input",
+          "name": "layer11"
+        }
       ],
       "inputs": [
         "ir.json",
@@ -343,7 +606,11 @@
         "layer11"
       ],
       "values": {},
-      "outputs": ["master_twin.usda", "twin_manifest.json", "qa_report.json"],
+      "outputs": [
+        "master_twin.usda",
+        "twin_manifest.json",
+        "qa_report.json"
+      ],
       "timeoutMs": 180000,
       "maxOutputBytes": 256000,
       "maxAssetBytes": 10485760
@@ -358,15 +625,36 @@
         "--python-exit-code",
         "1",
         "--python",
-        { "source": "package", "name": "jobs/glb_wrapper.py" },
+        {
+          "source": "package",
+          "name": "jobs/glb_wrapper.py"
+        },
         "--",
-        { "source": "input", "name": "object.usdc" },
-        { "source": "output", "name": "object.glb" },
-        { "source": "value", "name": "name" }
+        {
+          "source": "input",
+          "name": "object.usdc"
+        },
+        {
+          "source": "output",
+          "name": "object.glb"
+        },
+        {
+          "source": "value",
+          "name": "name"
+        }
       ],
-      "inputs": ["object.usdc"],
-      "values": { "name": { "pattern": "^[a-z0-9][a-z0-9-]{0,39}$", "maxLength": 40 } },
-      "outputs": ["object.glb"],
+      "inputs": [
+        "object.usdc"
+      ],
+      "values": {
+        "name": {
+          "pattern": "^[a-z0-9][a-z0-9-]{0,39}$",
+          "maxLength": 40
+        }
+      },
+      "outputs": [
+        "object.glb"
+      ],
       "timeoutMs": 180000,
       "maxOutputBytes": 256000,
       "maxAssetBytes": 104857600
@@ -376,19 +664,25 @@
     {
       "id": "twin_modeler",
       "description": "Build one building or landmark layer from its IR task card.",
-      "tools": ["gen-object"],
+      "tools": [
+        "gen-object"
+      ],
       "isolation": "copy"
     },
     {
       "id": "twin_site",
       "description": "Build roads, landscape and terrain from the master plan.",
-      "tools": ["gen-site"],
+      "tools": [
+        "gen-site"
+      ],
       "isolation": "copy"
     },
     {
       "id": "twin_scatter",
       "description": "Place catalog instances (lamps, trees, furniture) as instancers.",
-      "tools": ["scatter"],
+      "tools": [
+        "scatter"
+      ],
       "isolation": "copy"
     }
   ],
@@ -397,74 +691,197 @@
       "name": "twin-ir",
       "summary": "ParkProgram IR discipline: every field carries source, confidence and lock; only a person locks; conflicts resolve by source priority; changes land as diffs that rerun only affected objects.",
       "file": "skills/twin-ir.md",
-      "facts": ["twin-park", "twin-city", "twin-workshop"]
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
     },
     {
       "name": "twin-elements",
       "summary": "Engineering elements and the catalog: buildings, roads, lamps and devices are types with specs and instances, never hand-modelled meshes; one object one layer at local origin.",
       "file": "skills/twin-elements.md",
-      "facts": ["twin-park", "twin-city", "twin-workshop"]
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
     },
     {
       "name": "twin-operators",
       "summary": "The three operator paradigms (parametric buildings 60%, instancers 25%, asset completion 15%), their parameters and QA; you write parameters, operators write geometry.",
       "file": "skills/twin-operators.md",
-      "facts": ["twin-park", "twin-city", "twin-workshop"]
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
     },
     {
       "name": "twin-input-adapters",
       "summary": "How text, plan images, CAD, point clouds and orthophotos become IR and evidence only; scanned meshes are never deliverables.",
       "file": "skills/twin-input-adapters.md",
-      "facts": ["twin-park", "twin-city", "twin-workshop"]
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
     },
     {
       "name": "gis-alignment",
       "summary": "CGCS2000 to the site's local ENU frame, GeoServer overlays, orthophoto registration; a twin that is not georeferenced is a diorama.",
       "file": "skills/gis-alignment.md",
-      "facts": ["twin-park", "twin-city", "twin-workshop"]
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
     },
     {
       "name": "iot-binding",
       "summary": "Binding devices to scene targets: prim, device, property, target; one binding serves the web route and UE5's manifest keys; reverse control goes through a confirmation card.",
       "file": "skills/iot-binding.md",
-      "facts": ["twin-park", "twin-city", "twin-workshop"]
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
     },
     {
       "name": "park-standards",
       "summary": "Chinese twin requirements as checks: CIM layering, fire clearances (GB 50016), graded LOD, and the Q0-Q5 gates a delivery must pass.",
       "file": "skills/park-standards.md",
-      "facts": ["twin-park", "twin-city", "twin-workshop"]
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
     },
     {
       "name": "twin-workshop",
       "summary": "The workshop scene class: equipment/workstation/production-line elements, LOD3-4 precision, indoor/maintainable parts and the highest Q4 fidelity bar.",
       "file": "skills/twin-workshop.md",
-      "facts": ["twin-workshop"]
+      "facts": [
+        "twin-workshop"
+      ]
     },
     {
       "name": "twin-city",
       "summary": "The city-district scene class: LOD1-2 breadth-over-precision, 3D Tiles streaming from the same IR, and georeferencing as a hard Q3 gate.",
       "file": "skills/twin-city.md",
-      "facts": ["twin-city"]
+      "facts": [
+        "twin-city"
+      ]
     },
     {
       "name": "twin-plan",
       "summary": "The harness plan: produce ParkProgram IR first (gen-ir), only then run the geometry operators; the run.prepare / finish hooks block the build until Q1 self-consistency passes. The loop for a new twin scene.",
       "file": "skills/twin-plan.md",
-      "tools": ["gen-ir", "ir-check", "gen-object", "gen-site", "scatter", "assemble"],
-      "facts": ["twin-park", "twin-city", "twin-workshop"]
+      "tools": [
+        "gen-ir",
+        "ir-check",
+        "gen-object",
+        "gen-site",
+        "scatter",
+        "assemble"
+      ],
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
     }
   ],
   "hooks": [
-    { "on": "run.prepare", "tool": "ir-check", "facts": ["twin-park", "twin-city", "twin-workshop"] },
-    { "on": "checkpoint.before", "tool": "ir-check", "facts": ["twin-park", "twin-city", "twin-workshop"] },
-    { "on": "finish", "tool": "ir-check", "facts": ["twin-park", "twin-city", "twin-workshop"] }
+    {
+      "on": "run.prepare",
+      "tool": "ir-check",
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
+    },
+    {
+      "on": "checkpoint.before",
+      "tool": "ir-check",
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
+    },
+    {
+      "on": "finish",
+      "tool": "ir-check",
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
+    }
   ],
-  "locks": [{ "id": "usd", "label": "USD 工具链", "per": "app" }],
+  "locks": [
+    {
+      "id": "usd",
+      "label": "USD 工具链",
+      "per": "app"
+    }
+  ],
   "settings": [
-    { "key": "program", "label": "Python 解释器路径（含 pxr）", "type": "string", "default": "" },
-    { "key": "dwgProgram", "label": "ODA File Converter 路径", "type": "string", "default": "" },
-    { "key": "blenderProgram", "label": "Blender 路径（GLB 导出）", "type": "string", "default": "" },
-    { "key": "geoserver", "label": "GeoServer 地址", "type": "string", "default": "" }
+    {
+      "key": "program",
+      "label": "Python 解释器路径（含 pxr）",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "key": "dwgProgram",
+      "label": "ODA File Converter 路径",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "key": "blenderProgram",
+      "label": "Blender 路径（GLB 导出）",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "key": "geoserver",
+      "label": "GeoServer 地址",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "key": "modelingBackend",
+      "label": "建模后端（Blender 或 OpenUSD）",
+      "type": "string",
+      "default": "usd"
+    },
+    {
+      "key": "renderEngine",
+      "label": "渲染引擎（Babylon.js、Godot 或 Unreal）",
+      "type": "string",
+      "default": "babylon"
+    },
+    {
+      "key": "usdProgram",
+      "label": "OpenUSD 工具路径",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "key": "godotProgram",
+      "label": "Godot 路径",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "key": "unrealProgram",
+      "label": "Unreal 路径",
+      "type": "string",
+      "default": ""
+    }
   ]
 }
