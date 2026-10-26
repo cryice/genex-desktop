@@ -243,7 +243,9 @@ async function recordLayers(ctx: PluginContext, files: readonly string[]): Promi
 async function newPark(args: ToolArgs, ctx: PluginContext) {
   const sceneClass = String(args.sceneClass ?? "park");
   if (!isTwinSceneClass(sceneClass)) throw new Error(MESSAGE.BadScene(sceneClass));
-  const templateRoot = new URL("./template/", import.meta.url);
+  // The shared twin template lives beside the plugin tree so it can be reused by the
+  // project scaffold and the conformance fixtures without duplicating product files.
+  const templateRoot = new URL("../../twin-template/", import.meta.url);
   for (const rel of TEMPLATE_FILES) {
     let text = await readFile(new URL(rel, templateRoot), "utf8");
     if (rel === "index.html") text = text.replaceAll("__PARK_TITLE__", sceneLabel(sceneClass));
