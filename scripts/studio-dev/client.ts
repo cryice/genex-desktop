@@ -42,7 +42,13 @@ function exchange(socket: string, payload: string, requestId: string): Promise<a
       else resolve(value);
     };
     client.setTimeout(CONTROLLER_TIMEOUT_MS, () => finish(new Error("controller timeout")));
-    client.on("error", (e) => finish(e));
+    // A socket that is not there is an app that is not running: its folder is removed on the way
+    // out. Said as that, rather than as the bare `connect ENOENT …` a caller cannot act on.
+    client.on("error", (e: NodeJS.ErrnoException) =>
+      finish(
+        e.code === "ENOENT" ? new Error(`the development app is not running (no controller socket at ${socket})`) : e,
+      ),
+    );
     client.on("connect", () => client.write(payload));
     client.on("close", () => {
       if (!done) finish(new Error("controller closed before response"));

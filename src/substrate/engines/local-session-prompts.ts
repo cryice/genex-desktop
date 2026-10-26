@@ -89,6 +89,9 @@ export const LOCAL_NOTE = {
   intakeReply: "Recorded. Studio launches it when your reply ends; do not edit any more files.",
   /** The user message that carries a round's tool screenshots. */
   roundImages: "Images returned by the preceding tools",
+  /** A session whose model cannot see images hears this in place of the pixels. */
+  blindImages:
+    "Pictures were taken or attached (a tool's screenshot), but this model cannot see images, so they are not attached. Work from the tools' text answers and the game's state instead.",
   /** A change tool called in Plan mode: refused without asking, since nothing changes before approval. */
   planModeRefused:
     "Plan mode: nothing may change until the user approves your plan, so this did not run. Do not call edit_file, write_file or run_command; finish looking, then reply with your plan.",

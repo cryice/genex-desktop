@@ -9,7 +9,10 @@
  *
  * `isTransientProviderError` tells the two apart; `withProviderPatience` waits it out with a
  * capped backoff (about half an hour in total) before the caller's own policy takes over. A
- * usage or auth failure is never transient: those have a sign-in button or a reset time.
+ * usage or auth failure is never transient: those have a sign-in button or a reset time. Nor is a
+ * request the model itself cannot run (`isProviderRefusal`) — a model that cannot see the pictures
+ * it was handed refuses every attempt until the model or the request changes, and half an hour of
+ * waiting for that is a stall the person watches.
  */
 
 import { CLIP_REASON } from "./text.ts";
@@ -103,19 +106,34 @@ const TRANSIENT =
 const NEVER_TRANSIENT =
   /weekly limit|usage limit|hit your limit|out of usage|resets? (at|on)\b|unauthori[sz]ed|forbidden|\b401\b|\b403\b|invalid api key|not logged in|sign in|session expired/i;
 
+/**
+ * Words of a request the model itself cannot run: it cannot see the pictures it was handed, it
+ * takes no tools, or the account's proxy does not carry the model. No wait mends these — the model
+ * or the request has to change.
+ */
+const REFUSAL = /cannot see images|cannot call tools|not supported by this model|pick another model/i;
+
 /** Failures no wait fixes: a usage cap, a sign-in, a stop somebody asked for. */
 const NEVER_TRANSIENT_KINDS = new Set<unknown>([EngineFailure.UsageLimit, EngineFailure.Auth, EngineFailure.Aborted]);
+
+/** An error's own words, or the string itself. */
+function textOf(errorOrText: unknown): string {
+  if (typeof errorOrText === "string") return errorOrText;
+  return String((errorOrText as { message?: unknown } | null | undefined)?.message ?? errorOrText ?? "");
+}
+
+/** Does this failure name a request the model itself cannot run, rather than the provider's weather? */
+export function isProviderRefusal(errorOrText: unknown): boolean {
+  return REFUSAL.test(textOf(errorOrText));
+}
 
 /** True for an error (or its message) that names a provider hiccup, not a fault of the build. */
 export function isTransientProviderError(errorOrText: unknown): boolean {
   const kind = typeof errorOrText === "object" && errorOrText ? (errorOrText as { kind?: unknown }).kind : null;
   if (NEVER_TRANSIENT_KINDS.has(kind)) return false;
-  const text =
-    typeof errorOrText === "string"
-      ? errorOrText
-      : String((errorOrText as { message?: unknown } | null | undefined)?.message ?? errorOrText ?? "");
+  const text = textOf(errorOrText);
   if (!text) return false;
-  if (NEVER_TRANSIENT.test(text)) return false;
+  if (NEVER_TRANSIENT.test(text) || REFUSAL.test(text)) return false;
   if (kind === EngineFailure.Unavailable) return true;
   return TRANSIENT.test(text);
 }

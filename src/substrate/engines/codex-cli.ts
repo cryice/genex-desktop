@@ -51,9 +51,17 @@ export async function findCodexBinary(): Promise<string | null> {
  * The environment every Codex process starts with. D8: no metered key (`OPENAI_API_KEY`,
  * `CODEX_API_KEY`, `CODEX_ACCESS_TOKEN`). SEC-2: no other credential and no Anthropic/Claude
  * variable either — a Claude sign-in or a GitHub token is not this CLI's business.
+ *
+ * `set` is the caller's own and always arrives, unfiltered (`child-env.ts`): a cc-switch
+ * provider's key travels here, under the one name the launch's overrides spell, because
+ * `extra` is merged into the parent's environment and a name ending in `_KEY` would be
+ * stripped as a credential before the child ever saw it.
  */
-export function codexSubscriptionEnv(extra: Record<string, string | undefined> = {}): NodeJS.ProcessEnv {
-  return childEnv({ ...process.env, ...extra }, { base: "contractor", vendor: "codex" });
+export function codexSubscriptionEnv(
+  extra: Record<string, string | undefined> = {},
+  set?: Record<string, string | undefined>,
+): NodeJS.ProcessEnv {
+  return childEnv({ ...process.env, ...extra }, { base: "contractor", vendor: "codex", ...(set ? { set } : {}) });
 }
 
 /** Only app-selected profiles use our storage policy; legacy CLI profiles keep theirs. */

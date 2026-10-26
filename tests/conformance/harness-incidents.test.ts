@@ -2053,6 +2053,19 @@ describe("harness incidents", () => {
     assert.equal(isTransientProviderError("You've hit your weekly limit · resets Sep 1 at 10am"), false);
     assert.equal(isTransientProviderError("SyntaxError: missing ) after argument list"), false);
     assert.equal(isTransientProviderError({ kind: "usage_limit", message: "503 service unavailable" }), false);
+    // A request the model itself cannot run is never an outage, whatever its kind says: waiting
+    // half an hour for a model that cannot see the pictures it was handed is not patience.
+    assert.equal(
+      isTransientProviderError({ kind: "unavailable", message: "this model cannot see images" }),
+      false,
+      "a model that cannot see is not a provider that is down",
+    );
+    assert.equal(isTransientProviderError({ kind: "unavailable", message: "this model cannot call tools" }), false);
+    assert.equal(
+      isTransientProviderError({ kind: "unavailable", message: "inLink does not have qwen9. Pick another model." }),
+      false,
+    );
+    assert.equal(isTransientProviderError({ kind: "unavailable", message: "503 Service Unavailable" }), true);
     let calls = 0;
     const value = await withProviderPatience(
       { cancelled: false } as never,

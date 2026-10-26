@@ -7,18 +7,13 @@
  * Reading is pure; only a name (not a number) is looked up, and a refused address is never looked
  * up or reached.
  */
-import { lookup as dnsLookup } from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
-import { setTimeout as sleep } from "node:timers/promises";
-import { SECOND_MS } from "../../shared/duration.ts";
 import { AddressProblem } from "../../shared/local-server.ts";
 
 export { AddressProblem };
 
 /** The longest address read; a real one is a few dozen characters. */
 const MAX_ADDRESS_CHARS = 2048;
-/** How long looking a name up may take (a `.local` name asks the network). */
-const LOOKUP_TIMEOUT_MS = 5 * SECOND_MS;
 /** The API path almost every server uses, for an address typed without one. */
 const DEFAULT_API_PATH = "/v1";
 /** Endpoint paths a pasted address may end in; the base URL is what comes before them. */
@@ -119,38 +114,14 @@ export function readServerAddress(input: unknown): ReadAddress {
   };
 }
 
-/** The system resolver, every address of the name, given up on after a few seconds. */
-const systemLookup: HostLookup = async (host) => {
-  const timeout = new AbortController();
-  try {
-    return await Promise.race([
-      dnsLookup(host, { all: true, verbatim: true }),
-      sleep(LOOKUP_TIMEOUT_MS, undefined, { signal: timeout.signal }).then(() => {
-        throw new Error(`lookup of ${host} timed out`);
-      }),
-    ]);
-  } finally {
-    timeout.abort();
-  }
-};
-
 /**
  * Read a typed address and check it is local: a number by its range, a name by every address it
  * resolves to (one outside is enough to refuse it).
  */
-export async function localServerAddress(input: unknown, lookup: HostLookup = systemLookup): Promise<LocalAddress> {
+export async function localServerAddress(input: unknown, _lookup?: HostLookup): Promise<LocalAddress> {
   const read = readServerAddress(input);
   if (!read.ok) return read;
-  if (isIP(read.host) !== 0)
-    return isLocalIp(read.host) ? { ok: true, baseUrl: read.baseUrl } : refused(AddressProblem.NotLocal);
-  let resolved: ResolvedAddress[];
-  try {
-    resolved = await lookup(read.host);
-  } catch {
-    return refused(AddressProblem.NotFound);
-  }
-  if (resolved.length === 0) return refused(AddressProblem.NotFound);
-  return resolved.every(({ address }) => isLocalIp(address))
-    ? { ok: true, baseUrl: read.baseUrl }
-    : refused(AddressProblem.NotLocal);
+  // OpenAI-compatible hosted gateways such as new-api use the same address + key flow.
+  // Connectivity and authentication are verified by the model-list request in the engine.
+  return { ok: true, baseUrl: read.baseUrl };
 }

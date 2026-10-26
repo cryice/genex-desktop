@@ -1,0 +1,13 @@
+{
+  "id": "road-cross-section-a",
+  "element": "road",
+  "label": "Two-lane district road with kerb and verge",
+  "unit": "meters",
+  "params": {
+    "carriagewayM": { "type": "number", "default": 7 },
+    "lanes": { "type": "number", "default": 2 },
+    "kerbHeightM": { "type": "number", "default": 0.15 },
+    "vergeM": { "type": "number", "default": 1.5 },
+    "markingWidthM": { "type": "number", "default": 0.12 }
+  }
+}

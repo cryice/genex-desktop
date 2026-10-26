@@ -1,0 +1,14 @@
+{
+  "id": "lamp-spec-a",
+  "element": "lamp",
+  "label": "9 m single-arm LED lamp",
+  "unit": "meters",
+  "params": {
+    "poleHeightM": { "type": "number", "default": 9 },
+    "armLengthM": { "type": "number", "default": 1.5 },
+    "baseRadiusM": { "type": "number", "default": 0.18 },
+    "spacingM": { "type": "number", "default": 30 },
+    "powerW": { "type": "number", "default": 120 },
+    "circuit": { "type": "string", "default": "C1" }
+  }
+}

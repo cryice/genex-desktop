@@ -93,7 +93,9 @@ If a screenshot omits required state, record that missing fact. Never substitute
 scene or stale capture and call it a reproduction. Coverage labels describe bounded cases;
 consult the current acceptance report for pass/fail/unverified on this checkout.
 
-Coding CLI setup: **Settings → Model Providers** contains the Claude Code and Codex connections.
+Coding CLI setup: **Settings → Model Providers** has Claude Code and Codex connections, the metered
+OpenCode, OpenRouter, DeepSeek and inLink rows (each `section[aria-label="<name>"]`), and the
+person's own model server.
 Each row (`section[aria-label="Claude Code"]`,
 `section[aria-label="Codex"]`) shows the CLI version, one status, one context line and one action:
 Sign in, an Account menu, or Get/How to update plus Check again. Discovery is automatic (no path

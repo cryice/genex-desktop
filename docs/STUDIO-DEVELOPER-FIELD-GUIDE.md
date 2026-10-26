@@ -93,6 +93,9 @@ readiness and profile/build/source/runtime identity. Rebuilding does not update 
 Each start removes the builds no profile's `launch.json` or `attempt.json` names, once they are an
 hour old.
 Use the controller to stop owned sessions; a PID alone is not authority to signal a process.
+An app that exited on its own (a quit, a crash) leaves a controller record whose socket folder is
+gone: `stop` and `restart` then clear that record and report the profile stopped, rather than
+failing on it, and a record whose process is still alive is refused in words instead of signalled.
 `clean --profile <name>` removes only stopped recognized disposable state. Retained live
 profiles, evidence and normal games are not disposable fixture cleanup.
 

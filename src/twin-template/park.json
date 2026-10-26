@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "sceneClass": "park",
+  "stage": "park.usd",
+  "units": "meters",
+  "georef": null,
+  "assets": [],
+  "bindings": [],
+  "feed": { "kind": "websocket", "url": "", "topic": "" },
+  "renderTargets": ["babylon", "unreal"]
+}

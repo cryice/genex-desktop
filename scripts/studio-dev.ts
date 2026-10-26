@@ -27,6 +27,12 @@ function descriptor(owner: any) {
   if (d.ownerId !== owner.ownerId || d.profileId !== owner.profileId) throw new Error("wrong descriptor owner");
   return d;
 }
+/** The descriptor an operation is sent to, refusing in words when there is no app to send it to. */
+function liveDescriptor(owner: any) {
+  if (!fs.existsSync(safeChild(owner.root, "controller.json")))
+    throw new Error("the development app is not running: start the profile first");
+  return descriptor(owner);
+}
 async function command(executable: string, args: string[]) {
   return new Promise<void>((resolve, reject) => {
     const child = spawn(executable, args, { cwd: checkout, stdio: ["ignore", "pipe", "pipe"] });
@@ -45,7 +51,17 @@ const READY_POLL_MS = 200;
 
 export async function stopProfile(id: string) {
   const owner = validateProfile(checkout, id);
+  if (!fs.existsSync(safeChild(owner.root, "controller.json"))) return alreadyStopped(owner, { neverStarted: true });
   const d = descriptor(owner);
+  // The app removes its socket folder on the way out and never this record, so a profile whose app
+  // has already left would send `stop` — and `restart`, which stops first — to a path that is gone
+  // (`connect ENOENT …/ags-XXXX/s`). A controller that is not there is not running: record cleared,
+  // lease released. A pid that is still alive answers nothing, and is never signalled from here.
+  if (!fs.existsSync(d.socket)) {
+    if (pidExists(d.pid))
+      throw new Error(`the app (pid ${d.pid}) answers no controller socket; quit it yourself, then stop again`);
+    return alreadyStopped(owner, { instanceId: d.instanceId });
+  }
   const identity = await request(d, { method: "status", params: {} });
   if (identity.pid !== d.pid || identity.startedAt !== d.startedAt || identity.profileId !== id)
     throw new Error("wrong live process identity");
@@ -55,6 +71,14 @@ export async function stopProfile(id: string) {
   if (pidExists(d.pid)) throw new Error("shutdown timeout; ownership retained, no process signalled");
   assertStopped(owner);
   return { ...result, exited: true, instanceId: d.instanceId };
+}
+
+/** A profile with no controller to stop: its record goes, its lease is released, and it reads as stopped. */
+function alreadyStopped(owner: any, extra: { instanceId?: string; neverStarted?: boolean }) {
+  const record = safeChild(owner.root, "controller.json");
+  if (fs.existsSync(record)) fs.unlinkSync(record);
+  assertStopped(owner);
+  return { stopped: true, exited: false, ...extra };
 }
 
 /** The named fixture a fixture-provider profile starts from (app-basics unless named); none otherwise. */
@@ -301,7 +325,7 @@ export async function main(args = process.argv.slice(2)) {
   if (cli.command === "shell") return openShell(owner);
   if (cli.command === "status") return profileStatus(owner, id);
   // capture/snapshot/logs/ui/diagnostics: one validated operation, inline or from a file/stdin.
-  const d = descriptor(owner);
+  const d = liveDescriptor(owner);
   const requestSource = cli.requestFile === "-" ? 0 : (cli.requestFile as string);
   return request(d, cli.operation ?? parseOperation(fs.readFileSync(requestSource, "utf8")));
 }
