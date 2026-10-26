@@ -258,6 +258,34 @@
           "object"
         ]
       }
+    },
+    {
+      "name": "configure-target",
+      "description": "Select the canonical modeling backend and renderer target, then write twin-target.json for deterministic exports.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "modeling": {
+            "type": "string",
+            "enum": [
+              "usd",
+              "blender"
+            ]
+          },
+          "renderer": {
+            "type": "string",
+            "enum": [
+              "babylon",
+              "godot",
+              "unreal"
+            ]
+          }
+        },
+        "required": [
+          "modeling",
+          "renderer"
+        ]
+      }
     }
   ],
   "nativeRuntimes": [

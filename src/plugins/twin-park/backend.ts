@@ -32,6 +32,8 @@ import {
   isTwinElement,
   isTwinObjectKind,
   isTwinDataSourceKind,
+  isTwinModelingBackend,
+  isTwinRendererTarget,
   twinElementKind,
   TwinObjectKind,
   type TwinElement,
@@ -85,6 +87,7 @@ const Tool = {
   Georeference: "georeference",
   IotBind: "iot-bind",
   ExportGlb: "export-glb",
+  ConfigureTarget: "configure-target",
 } as const;
 
 /** The runtime files new-park writes into a project (the Babylon preview, the scene and the catalog). */
@@ -809,6 +812,32 @@ async function genIr(args: ToolArgs, ctx: PluginContext) {
   return { ok: issues.length === 0, issues, written: "ir.json", objectCount: objects.length, sceneClass };
 }
 
+/** Persist the selected modeling backend and renderer target for deterministic exports. */
+async function configureTarget(args: ToolArgs, ctx: PluginContext) {
+  const renderer = String(args.renderer ?? "");
+  const modeling = String(args.modeling ?? "");
+  if (!isTwinRendererTarget(renderer)) throw new Error(`不支持的渲染目标：${renderer}`);
+  if (!isTwinModelingBackend(modeling)) throw new Error(`不支持的建模后端：${modeling}`);
+  const output = rendererOutput(renderer);
+  const target = {
+    version: 1,
+    renderer,
+    modeling,
+    coordinateFrame: "local-enu",
+    units: "meters",
+    output,
+  };
+  await writeJson(ctx, "twin-target.json", target);
+  return target;
+}
+
+/** The project output shape for one renderer target. */
+function rendererOutput(renderer: string): "web" | "godot-project" | "unreal-project" {
+  if (renderer === "babylon") return "web";
+  if (renderer === "godot") return "godot-project";
+  return "unreal-project";
+}
+
 /** Local modeling uses only public SDK services; no import from Studio core. */
 export const activate: Activate = () => ({
   async action(name, _args, ctx) {
@@ -847,6 +876,8 @@ export const activate: Activate = () => ({
         return iotBind(args, ctx);
       case Tool.ExportGlb:
         return exportGlb(args, ctx);
+      case Tool.ConfigureTarget:
+        return configureTarget(args, ctx);
       default:
         throw new Error(MESSAGE.UnknownTool(name));
     }
