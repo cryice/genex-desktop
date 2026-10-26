@@ -25,4 +25,10 @@
 - China standards mapping skill covers BIM/CIM, surveying, smart-city and security references without copying protected standard text.
 - `validate-data-sources` applies metadata gates before renderer export and records `ready` or `needs-metadata` status per source.
 - Ten iterations are recorded in [`iteration-plan.md`](./iteration-plan.md), including evidence and release follow-ups.
+
+## Release evidence still required
+
+- On a machine with Unreal installed, open `exports/unreal/TwinImport.json`, import the referenced USD layer, and record the engine version and result in the project evidence.
+- For offline Babylon delivery, replace the generated CDN script with a pinned project asset and record the Babylon.js version and license in `THIRD-PARTY-NOTICES.md`.
+- Resolve the existing upstream provider/sandbox TypeScript errors before treating the repository typecheck as a release gate.
 - Full repository typecheck currently has unrelated baseline errors in upstream provider/sandbox integration; these must be resolved before a release gate.
