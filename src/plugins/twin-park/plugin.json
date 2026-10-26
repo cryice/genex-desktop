@@ -878,6 +878,36 @@
         "twin-city",
         "twin-workshop"
       ]
+    },
+    {
+      "name": "twin-babylon",
+      "summary": "Browser editing and operations runtime for Twin IR.",
+      "file": "skills/twin-babylon.md",
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
+    },
+    {
+      "name": "twin-godot",
+      "summary": "Cross-platform Godot runtime generation from Twin IR.",
+      "file": "skills/twin-godot.md",
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
+    },
+    {
+      "name": "twin-unreal",
+      "summary": "High-fidelity Unreal project and streaming export from Twin IR.",
+      "file": "skills/twin-unreal.md",
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
     }
   ],
   "hooks": [
