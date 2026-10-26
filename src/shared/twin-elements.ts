@@ -7,6 +7,34 @@
  * styled art assets; see `twin-ir.ts` for the program they are assembled into.
  */
 
+/** Modeling backends that can produce canonical twin geometry. */
+export const TwinModelingBackend = {
+  OpenUsd: "usd",
+  Blender: "blender",
+} as const;
+export type TwinModelingBackend = (typeof TwinModelingBackend)[keyof typeof TwinModelingBackend];
+
+/** Runtime targets that consume the canonical Twin IR and manifest. */
+export const TwinRendererTarget = {
+  Babylon: "babylon",
+  Godot: "godot",
+  Unreal: "unreal",
+} as const;
+export type TwinRendererTarget = (typeof TwinRendererTarget)[keyof typeof TwinRendererTarget];
+
+const MODELING_BACKENDS: ReadonlySet<unknown> = new Set(Object.values(TwinModelingBackend));
+const RENDERER_TARGETS: ReadonlySet<unknown> = new Set(Object.values(TwinRendererTarget));
+
+/** Whether a value names a supported modeling backend. */
+export function isTwinModelingBackend(value: unknown): value is TwinModelingBackend {
+  return MODELING_BACKENDS.has(value);
+}
+
+/** Whether a value names a supported renderer target. */
+export function isTwinRendererTarget(value: unknown): value is TwinRendererTarget {
+  return RENDERER_TARGETS.has(value);
+}
+
 /** The scene classes a twin project may be (§2.4 of the twin design): one IR and one operator set, three sets of requirements. */
 export const TwinSceneClass = {
   Park: "park",
