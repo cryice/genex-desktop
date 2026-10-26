@@ -894,12 +894,73 @@ async function writeGodotExport(ctx: PluginContext): Promise<void> {
   await writeText(
     ctx,
     "exports/godot/TwinRuntime.gd",
-    `extends Node\n\n@export_file("*.json") var manifest_path := "../twin-export.json"\nvar twin_manifest: Dictionary = {}\n\nfunc _ready() -> void:\n    var file := FileAccess.open(manifest_path, FileAccess.READ)\n    if file:\n        twin_manifest = JSON.parse_string(file.get_as_text())\n`,
+    `extends Node3D
+
+@export_file("*.json") var manifest_path := "../twin-export.json"
+var twin_manifest: Dictionary = {}
+
+func _ready() -> void:
+    var file := FileAccess.open(manifest_path, FileAccess.READ)
+    if file == null:
+        push_error("Twin manifest not found: " + manifest_path)
+        return
+    var parsed = JSON.parse_string(file.get_as_text())
+    if typeof(parsed) != TYPE_DICTIONARY:
+        push_error("Twin manifest is not a JSON object")
+        return
+    twin_manifest = parsed
+    _build_objects(twin_manifest.get("objects", []))
+
+func _build_objects(objects: Array) -> void:
+    for item in objects:
+        if typeof(item) != TYPE_DICTIONARY:
+            continue
+        var ring: Array = item.get("worldOutline", [])
+        if ring.is_empty():
+            continue
+        var min_x := INF
+        var max_x := -INF
+        var min_z := INF
+        var max_z := -INF
+        for point in ring:
+            if typeof(point) != TYPE_DICTIONARY:
+                continue
+            var x := float(point.get("x", 0.0))
+            var z := float(point.get("y", 0.0))
+            min_x = min(min_x, x)
+            max_x = max(max_x, x)
+            min_z = min(min_z, z)
+            max_z = max(max_z, z)
+        var height := max(1.0, float(item.get("floors", 1)) * float(item.get("storeyM", 3.0)))
+        var node := MeshInstance3D.new()
+        node.name = str(item.get("id", "TwinObject"))
+        node.metadata["twin_id"] = node.name
+        var box := BoxMesh.new()
+        box.size = Vector3(max(1.0, max_x - min_x), height, max(1.0, max_z - min_z))
+        node.mesh = box
+        node.position = Vector3((min_x + max_x) * 0.5, height * 0.5, (min_z + max_z) * 0.5)
+        add_child(node)
+`,
   );
   await writeText(
     ctx,
     "exports/godot/TwinRuntime.tscn",
-    `[gd_scene load_steps=2 format=3]\n\n[ext_resource path="res://TwinRuntime.gd" type="Script" id="1"]\n\n[node name="TwinRuntime" type="Node"]\nscript = ExtResource("1")\n`,
+    `[gd_scene load_steps=2 format=3]
+
+[ext_resource path="res://TwinRuntime.gd" type="Script" id="1"]
+
+[node name="TwinRuntime" type="Node3D"]
+script = ExtResource("1")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+position = Vector3(0, 40, 60)
+rotation_degrees = Vector3(-32, 0, 0)
+current = true
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-45, -30, 0)
+shadow_enabled = true
+`,
   );
 }
 
