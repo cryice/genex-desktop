@@ -90,6 +90,7 @@ const Tool = {
   ConfigureTarget: "configure-target",
   ExportTarget: "export-target",
   RegisterDataSource: "register-data-source",
+  ValidateDataSources: "validate-data-sources",
 } as const;
 
 /** The runtime files new-park writes into a project (the Babylon preview, the scene and the catalog). */
@@ -884,6 +885,29 @@ async function registerDataSource(args: ToolArgs, ctx: PluginContext) {
   return { ok: source.issues.length === 0, source, path: "data-sources.json" };
 }
 
+function validateDataSource(value: unknown): unknown {
+  if (!value || typeof value !== "object") return value;
+  const source = value as { kind?: string; uri?: string; crs?: string; units?: string };
+  const issues: string[] = [];
+  if (!source.uri || source.uri.trim() === "") issues.push("需要数据源地址");
+  if (source.kind !== "iot" && !source.crs) issues.push("需要坐标系 CRS");
+  if (["bim", "cad", "pointcloud"].includes(source.kind ?? "") && !source.units) issues.push("需要单位");
+  if (source.kind === "cad" && !/\.(dwg|dxf)(\?|$)/i.test(source.uri ?? "")) issues.push("CAD 数据源应为 DWG 或 DXF");
+  return { ...source, issues, status: issues.length === 0 ? "ready" : "needs-metadata" };
+}
+
+/** Validate all registered sources before IR generation or renderer export. */
+async function validateDataSources(ctx: PluginContext) {
+  const current = (await readJson(ctx, "data-sources.json")) as { sources?: unknown[] } | null;
+  const sources = Array.isArray(current?.sources) ? current.sources : [];
+  const checked = sources.map(validateDataSource);
+  await writeJson(ctx, "data-sources.json", { version: 1, sources: checked });
+  const invalid = checked.filter(
+    (source) => source && typeof source === "object" && (source as { issues?: string[] }).issues?.length,
+  );
+  return { ok: invalid.length === 0, checked: checked.length, invalid: invalid.length, path: "data-sources.json" };
+}
+
 /** Write the small Godot runtime bridge; scene content remains generated from the manifest. */
 async function writeGodotExport(ctx: PluginContext): Promise<void> {
   await writeText(
@@ -1097,6 +1121,8 @@ export const activate: Activate = () => ({
         return exportTarget(ctx);
       case Tool.RegisterDataSource:
         return registerDataSource(args, ctx);
+      case Tool.ValidateDataSources:
+        return validateDataSources(ctx);
       default:
         throw new Error(MESSAGE.UnknownTool(name));
     }

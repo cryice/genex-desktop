@@ -329,6 +329,14 @@
           "uri"
         ]
       }
+    },
+    {
+      "name": "validate-data-sources",
+      "description": "Validate all registered GIS, BIM, CAD/DWG, point-cloud and IoT inputs, then write ready or needs-metadata status to data-sources.json.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
     }
   ],
   "nativeRuntimes": [
