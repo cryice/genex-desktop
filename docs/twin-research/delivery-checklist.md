@@ -21,5 +21,6 @@
 ## Verification
 
 - Biome checks pass for changed TypeScript files.
-- Manifest parses with Node and declares 14 tools, 20 skills and one project panel.
+- Manifest parses with Node and declares 14 tools, 21 skills and one project panel.
+- China standards mapping skill covers BIM/CIM, surveying, smart-city and security references without copying protected standard text.
 - Full repository typecheck currently has unrelated baseline errors in upstream provider/sandbox integration; these must be resolved before a release gate.

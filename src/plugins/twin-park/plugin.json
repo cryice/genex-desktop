@@ -883,6 +883,16 @@
       ]
     },
     {
+      "name": "twin-china-standards",
+      "summary": "Map Chinese BIM, CIM, surveying, smart-city and security standards to Twin IR metadata and validation evidence.",
+      "file": "skills/twin-china-standards.md",
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
+    },
+    {
       "name": "twin-gis",
       "summary": "GIS, raster, point-cloud and 3D Tiles ingestion into Twin IR.",
       "file": "skills/twin-gis.md",
