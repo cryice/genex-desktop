@@ -89,6 +89,7 @@ const Tool = {
   ExportGlb: "export-glb",
   ConfigureTarget: "configure-target",
   ExportTarget: "export-target",
+  RegisterDataSource: "register-data-source",
 } as const;
 
 /** The runtime files new-park writes into a project (the Babylon preview, the scene and the catalog). */
@@ -854,6 +855,33 @@ async function exportTarget(ctx: PluginContext) {
   return { ok: true, path: "exports/twin-export.json", target };
 }
 
+/** Register one GIS/BIM/CAD/point-cloud/IoT input with basic metadata checks. */
+async function registerDataSource(args: ToolArgs, ctx: PluginContext) {
+  const kind = String(args.kind ?? "");
+  const uri = String(args.uri ?? "").trim();
+  if (!isTwinDataSourceKind(kind)) throw new Error(`不支持的数据源类型：${kind}`);
+  if (!uri) throw new Error("数据源地址不能为空");
+  const current = (await readJson(ctx, "data-sources.json")) as { sources?: unknown[] } | null;
+  const sources = Array.isArray(current?.sources) ? current.sources : [];
+  const source = {
+    id: String(args.id ?? `${kind}-${sources.length + 1}`),
+    kind,
+    uri,
+    ...(typeof args.crs === "string" && args.crs ? { crs: args.crs } : {}),
+    ...(typeof args.units === "string" && args.units ? { units: args.units } : {}),
+    status: "pending",
+    issues: kind === "iot" || args.crs ? [] : ["需要补充坐标系"],
+  };
+  const next = [
+    ...sources.filter(
+      (item) => typeof item === "object" && item !== null && (item as { id?: string }).id !== source.id,
+    ),
+    source,
+  ];
+  await writeJson(ctx, "data-sources.json", { version: 1, sources: next });
+  return { ok: source.issues.length === 0, source, path: "data-sources.json" };
+}
+
 /** Write the small Godot runtime bridge; scene content remains generated from the manifest. */
 async function writeGodotExport(ctx: PluginContext): Promise<void> {
   await writeText(
@@ -945,6 +973,8 @@ export const activate: Activate = () => ({
         return configureTarget(args, ctx);
       case Tool.ExportTarget:
         return exportTarget(ctx);
+      case Tool.RegisterDataSource:
+        return registerDataSource(args, ctx);
       default:
         throw new Error(MESSAGE.UnknownTool(name));
     }

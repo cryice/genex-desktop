@@ -294,6 +294,41 @@
         "type": "object",
         "properties": {}
       }
+    },
+    {
+      "name": "register-data-source",
+      "description": "Register one GIS, BIM, CAD/DWG, point-cloud or IoT input in data-sources.json and report missing metadata.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "gis",
+              "bim",
+              "cad",
+              "pointcloud",
+              "iot"
+            ]
+          },
+          "uri": {
+            "type": "string"
+          },
+          "crs": {
+            "type": "string"
+          },
+          "units": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "uri"
+        ]
+      }
     }
   ],
   "nativeRuntimes": [
