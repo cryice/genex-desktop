@@ -786,6 +786,18 @@ async function genIr(args: ToolArgs, ctx: PluginContext) {
 
 /** Local modeling uses only public SDK services; no import from Studio core. */
 export const activate: Activate = () => ({
+  async action(name, _args, ctx) {
+    if (name === "workspace-status") {
+      const park = await readPark(ctx);
+      return {
+        sceneClass: park?.sceneClass ?? null,
+        hasIr: Boolean(await readJson(ctx, "ir.json")),
+        hasManifest: Boolean(await readJson(ctx, "twin_manifest.json")),
+      };
+    }
+    if (name === "check-ir") return irCheck(ctx);
+    throw new Error(MESSAGE.UnknownTool(name));
+  },
   async tool(name, args, ctx) {
     switch (name) {
       case Tool.NewPark:

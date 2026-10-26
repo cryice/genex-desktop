@@ -1,0 +1,35 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  :root { color-scheme: light dark; font: 13px system-ui, sans-serif; }
+  body { margin: 0; padding: 16px; color: var(--foreground, #e8e8e8); background: var(--background, #1b1d20); }
+  h1 { margin: 0 0 4px; font-size: 18px; }
+  p { margin: 0; color: color-mix(in srgb, currentColor 68%, transparent); }
+  nav { display: flex; gap: 6px; margin: 18px 0; }
+  button { cursor: pointer; border: 1px solid color-mix(in srgb, currentColor 22%, transparent); border-radius: 7px; padding: 7px 10px; color: inherit; background: color-mix(in srgb, currentColor 8%, transparent); }
+  button[aria-selected="true"] { background: var(--accent-fill, #3567d6); color: var(--accent-foreground, white); }
+  section { display: none; padding: 14px; border-radius: 10px; background: color-mix(in srgb, currentColor 6%, transparent); }
+  section[data-active="true"] { display: block; }
+  .status { margin-top: 14px; min-height: 20px; }
+</style>
+<h1>Twin Studio</h1>
+<p>以 Twin IR 为事实来源，管理工程数据、场景和运行应用。</p>
+<nav role="tablist" aria-label="Twin Studio sections">
+  <button role="tab" aria-selected="true" data-tab="data">数据</button>
+  <button role="tab" aria-selected="false" data-tab="scene">场景</button>
+  <button role="tab" aria-selected="false" data-tab="app">应用</button>
+</nav>
+<section data-panel="data" data-active="true"><strong>工程数据</strong><p>GIS、BIM、DWG/DXF、IoT 数据将在这里导入并校验。</p></section>
+<section data-panel="scene"><strong>场景与建模</strong><p>使用 OpenUSD 或 Blender 建模，输出 Babylon.js、Godot 或 Unreal 目标。</p></section>
+<section data-panel="app"><strong>数字孪生应用</strong><p>配置实时数据、告警、回放和业务视图。</p></section>
+<div class="status" role="status" aria-live="polite">正在读取项目状态…</div>
+<script>
+  const status = document.querySelector('.status');
+  const tabs = [...document.querySelectorAll('[data-tab]')];
+  const panels = [...document.querySelectorAll('[data-panel]')];
+  function select(name) { tabs.forEach((tab) => tab.setAttribute('aria-selected', String(tab.dataset.tab === name))); panels.forEach((panel) => panel.dataset.active = String(panel.dataset.panel === name)); }
+  tabs.forEach((tab) => tab.addEventListener('click', () => select(tab.dataset.tab)));
+  async function load() { try { const value = await studioPlugin.call('action', 'workspace-status', {}); status.textContent = value.sceneClass ? `场景：${value.sceneClass} · IR：${value.hasIr ? '已生成' : '未生成'} · 清单：${value.hasManifest ? '已生成' : '未生成'}` : '尚未识别 Twin 项目'; } catch (error) { status.textContent = error.message; } }
+  load();
+</script>
+<!-- STUDIO_PANEL_SDK -->

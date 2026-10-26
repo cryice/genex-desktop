@@ -943,5 +943,23 @@
       "type": "string",
       "default": ""
     }
+  ],
+  "panels": [
+    {
+      "id": "twin-workspace",
+      "title": "Twin Studio",
+      "file": "panel.html",
+      "placement": "project"
+    }
+  ],
+  "actions": [
+    {
+      "name": "workspace-status",
+      "label": "Refresh Twin Studio"
+    },
+    {
+      "name": "check-ir",
+      "label": "Check Twin IR"
+    }
   ]
 }
