@@ -10,9 +10,11 @@ import {
   type TwinObjectKind,
   type TwinSceneClass,
   type TwinElement,
+  type TwinDataSourceKind,
   isTwinSceneClass,
   isTwinElement,
   isTwinObjectKind,
+  isTwinDataSourceKind,
   twinElementKind,
 } from "./twin-elements.ts";
 
@@ -188,6 +190,20 @@ export interface IrEnvironment {
   cameraTracks: readonly string[];
 }
 
+/** One external engineering data source recorded with the IR and its validation evidence. */
+export interface IrDataSource {
+  id: string;
+  kind: TwinDataSourceKind;
+  uri: string;
+  crs?: string;
+  units?: string;
+  version?: string;
+  capturedAt?: string;
+  checksum?: string;
+  status: "pending" | "validated" | "rejected";
+  issues: readonly string[];
+}
+
 /** The whole program: one scene class, one brief, one master plan, every object. */
 export interface IrProgram {
   version: 1;
@@ -197,6 +213,8 @@ export interface IrProgram {
   objects: readonly IrObject[];
   styleGuide: IrStyleGuide;
   environment: IrEnvironment;
+  /** External CIM/BIM/GIS/CAD/IoT inputs and their validation state. */
+  dataSources?: readonly IrDataSource[];
   /** Optional device-to-scene bindings; written by `iot-bind` and read by the assemble operator. */
   bindings?: readonly IrBinding[];
 }
@@ -443,6 +461,22 @@ export function isIrProgram(value: unknown): value is IrProgram {
     program.brief !== null &&
     typeof program.masterPlan === "object" &&
     program.masterPlan !== null &&
-    Array.isArray(program.objects)
+    Array.isArray(program.objects) &&
+    (!program.dataSources || program.dataSources.every(isIrDataSource))
+  );
+}
+
+/** Whether a recorded engineering data source has enough metadata for an adapter to use it. */
+export function isIrDataSource(value: unknown): value is IrDataSource {
+  if (typeof value !== "object" || value === null) return false;
+  const source = value as Partial<IrDataSource>;
+  return (
+    typeof source.id === "string" &&
+    source.id.length > 0 &&
+    isTwinDataSourceKind(source.kind) &&
+    typeof source.uri === "string" &&
+    source.uri.length > 0 &&
+    (source.status === "pending" || source.status === "validated" || source.status === "rejected") &&
+    Array.isArray(source.issues)
   );
 }

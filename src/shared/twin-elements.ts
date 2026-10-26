@@ -22,8 +22,19 @@ export const TwinRendererTarget = {
 } as const;
 export type TwinRendererTarget = (typeof TwinRendererTarget)[keyof typeof TwinRendererTarget];
 
+/** Engineering data families accepted by Twin Studio adapters. */
+export const TwinDataSourceKind = {
+  Gis: "gis",
+  Bim: "bim",
+  Cad: "cad",
+  PointCloud: "pointcloud",
+  Iot: "iot",
+} as const;
+export type TwinDataSourceKind = (typeof TwinDataSourceKind)[keyof typeof TwinDataSourceKind];
+
 const MODELING_BACKENDS: ReadonlySet<unknown> = new Set(Object.values(TwinModelingBackend));
 const RENDERER_TARGETS: ReadonlySet<unknown> = new Set(Object.values(TwinRendererTarget));
+const DATA_SOURCE_KINDS: ReadonlySet<unknown> = new Set(Object.values(TwinDataSourceKind));
 
 /** Whether a value names a supported modeling backend. */
 export function isTwinModelingBackend(value: unknown): value is TwinModelingBackend {
@@ -33,6 +44,11 @@ export function isTwinModelingBackend(value: unknown): value is TwinModelingBack
 /** Whether a value names a supported renderer target. */
 export function isTwinRendererTarget(value: unknown): value is TwinRendererTarget {
   return RENDERER_TARGETS.has(value);
+}
+
+/** Whether a value names a supported engineering data family. */
+export function isTwinDataSourceKind(value: unknown): value is TwinDataSourceKind {
+  return DATA_SOURCE_KINDS.has(value);
 }
 
 /** The scene classes a twin project may be (§2.4 of the twin design): one IR and one operator set, three sets of requirements. */
