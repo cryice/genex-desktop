@@ -790,6 +790,66 @@
         "twin-city",
         "twin-workshop"
       ]
+    },
+    {
+      "name": "twin-domain-model",
+      "summary": "Engineering object, relation, provenance and quality rules for a Twin IR.",
+      "file": "skills/twin-domain-model.md",
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
+    },
+    {
+      "name": "twin-coordinate",
+      "summary": "CRS, local ENU frame, units, origin and transform checks.",
+      "file": "skills/twin-coordinate.md",
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
+    },
+    {
+      "name": "twin-gis",
+      "summary": "GIS, raster, point-cloud and 3D Tiles ingestion into Twin IR.",
+      "file": "skills/twin-gis.md",
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
+    },
+    {
+      "name": "twin-bim",
+      "summary": "IFC/BIM semantics, GUIDs, LOD and delivery checks.",
+      "file": "skills/twin-bim.md",
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
+    },
+    {
+      "name": "twin-cad",
+      "summary": "DWG/DXF conversion, layers, blocks and reviewable mappings.",
+      "file": "skills/twin-cad.md",
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
+    },
+    {
+      "name": "twin-iot",
+      "summary": "Device, telemetry, alarm, command and audit bindings.",
+      "file": "skills/twin-iot.md",
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
     }
   ],
   "hooks": [
