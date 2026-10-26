@@ -953,10 +953,20 @@ export const activate: Activate = () => ({
   async action(name, _args, ctx) {
     if (name === "workspace-status") {
       const park = await readPark(ctx);
+      const dataSources = await readJson(ctx, "data-sources.json");
+      const target = await readJson(ctx, "twin-target.json");
+      const sourceCount =
+        dataSources &&
+        typeof dataSources === "object" &&
+        Array.isArray((dataSources as { sources?: unknown[] }).sources)
+          ? (dataSources as { sources: unknown[] }).sources.length
+          : 0;
       return {
         sceneClass: park?.sceneClass ?? null,
         hasIr: Boolean(await readJson(ctx, "ir.json")),
         hasManifest: Boolean(await readJson(ctx, "twin_manifest.json")),
+        sourceCount,
+        target: target && typeof target === "object" ? target : null,
       };
     }
     if (name === "check-ir") return irCheck(ctx);
