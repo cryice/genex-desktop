@@ -178,6 +178,7 @@ orbkit's MIT-licensed runtime and orbs are included (SHDR-11, 12, 13, 14, 16, 17
 The renderer chunk carries the notice below as a legal comment.
 
 ```
+
 MIT License
 
 Copyright (c) 2026 zzzzshawn
@@ -200,6 +201,15 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Runtime CDN dependencies
+
+Twin Studio's generated Babylon preview currently loads Babylon.js from
+`https://cdn.babylonjs.com/babylon.js` at runtime. Babylon.js is distributed under
+the Apache License 2.0; see the [Babylon.js license](https://github.com/BabylonJS/Babylon.js/blob/master/LICENSE.md).
+The generated preview does not bundle this dependency or pin a release version. Offline or
+release delivery must vendor a reviewed version, update the URL, and record that exact version
+and checksum here.
 
 ## Fonts
 
