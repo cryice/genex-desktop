@@ -24,4 +24,5 @@
 - Manifest parses with Node and declares 15 tools, 21 skills and one project panel.
 - China standards mapping skill covers BIM/CIM, surveying, smart-city and security references without copying protected standard text.
 - `validate-data-sources` applies metadata gates before renderer export and records `ready` or `needs-metadata` status per source.
+- Ten iterations are recorded in [`iteration-plan.md`](./iteration-plan.md), including evidence and release follow-ups.
 - Full repository typecheck currently has unrelated baseline errors in upstream provider/sandbox integration; these must be resolved before a release gate.
