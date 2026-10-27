@@ -25,6 +25,7 @@
 - Godot 与 Babylon 导出都将 Twin IR 中的建筑轮廓和 IoT 数据写入各自目录的 `TwinManifest.json`，不再依赖 assemble 阶段产物；Godot 从 `res://` 读取，Babylon 从同目录 fetch。两者仍需各自引擎/浏览器环境做最终运行验证。
 - Babylon 预览对象现在携带设备绑定，活动告警会高亮对象，点选对象可查看测点值和告警；生成的内联 JavaScript 已通过 Node 语法检查。
 - Babylon 预览可使用 `park.json` 中配置的只读 WebSocket feed，按 `{device,property,value}` 更新匹配绑定和测点详情；不发送反向控制命令。
+- 新增 `configure-iot-feed` 配置入口，校验 `ws/wss` 地址并将数据源同步登记到项目清单和已有 Twin IR；面板状态显示 feed 是否已配置。
 - Unreal README 现区分 Genex 集成描述与 Unreal 原生可导入文件，并给出 USD Stage 工作流和稳定 prim ID 约定；仍需 Unreal 实机导入验证。
 - Godot 尚未安装，仍需在具备 Godot 4 的环境中启动导出工程进行运行验证。
 - Babylon.js 使用 CDN 运行时，离线交付需要在项目资产中固定 Babylon.js 版本并记录许可证。

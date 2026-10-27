@@ -29,7 +29,7 @@
   const panels = [...document.querySelectorAll('[data-panel]')];
   function select(name) { tabs.forEach((tab) => tab.setAttribute('aria-selected', String(tab.dataset.tab === name))); panels.forEach((panel) => panel.dataset.active = String(panel.dataset.panel === name)); }
   tabs.forEach((tab) => tab.addEventListener('click', () => select(tab.dataset.tab)));
-  async function load() { try { const value = await studioPlugin.call('action', 'workspace-status', {}); if (!value.sceneClass) { status.textContent = '尚未识别 Twin 项目'; return; } const target = value.target ? `${value.target.modeling} → ${value.target.renderer}` : '未配置目标'; status.textContent = `场景：${value.sceneClass} · 数据源：${value.sourceCount} · IR：${value.hasIr ? '已生成' : '未生成'} · 清单：${value.hasManifest ? '已生成' : '未生成'} · ${target}`; } catch (error) { status.textContent = error.message; } }
+  async function load() { try { const value = await studioPlugin.call('action', 'workspace-status', {}); if (!value.sceneClass) { status.textContent = '尚未识别 Twin 项目'; return; } const target = value.target ? `${value.target.modeling} → ${value.target.renderer}` : '未配置目标'; const feed = value.feed?.configured ? `IoT：已配置${value.feed.topic ? `（${value.feed.topic}）` : ''}` : 'IoT：未配置'; status.textContent = `场景：${value.sceneClass} · 数据源：${value.sourceCount} · IR：${value.hasIr ? '已生成' : '未生成'} · 清单：${value.hasManifest ? '已生成' : '未生成'} · ${target} · ${feed}`; } catch (error) { status.textContent = error.message; } }
   load();
 </script>
 <!-- STUDIO_PANEL_SDK -->

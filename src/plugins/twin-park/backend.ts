@@ -74,6 +74,10 @@ const Job = {
 /** The native runtime each tool names. */
 const Runtime = { Py: "py", Dwg: "dwg", Blender: "blender" } as const;
 
+/** The supported live IoT transport and the stable data-source id for its project feed. */
+const TwinFeed = { SourceId: "iot-live-feed", Kind: "websocket", Ws: "ws:", Wss: "wss:" } as const;
+const TWIN_FEED_PROTOCOLS: readonly string[] = [TwinFeed.Ws, TwinFeed.Wss];
+
 /** The agent tools plugin.json declares. */
 const Tool = {
   NewPark: "new-park",
@@ -91,6 +95,7 @@ const Tool = {
   ExportTarget: "export-target",
   RegisterDataSource: "register-data-source",
   ValidateDataSources: "validate-data-sources",
+  ConfigureIotFeed: "configure-iot-feed",
 } as const;
 
 /** The runtime files new-park writes into a project (the Babylon preview, the scene and the catalog). */
@@ -915,6 +920,52 @@ async function validateDataSources(ctx: PluginContext) {
   return { ok: invalid.length === 0, checked: checked.length, invalid: invalid.length, path: "data-sources.json" };
 }
 
+/** Configure the read-only WebSocket feed used by renderer adapters and mirror it into Twin IR. */
+async function configureIotFeed(args: ToolArgs, ctx: PluginContext) {
+  const park = await readPark(ctx);
+  if (!park) throw new Error("请先使用 new-park 创建 Twin 项目");
+  const endpoint = String(args.url ?? "").trim();
+  const topic = String(args.topic ?? "").trim();
+  if (!endpoint || endpoint.length > 2000) throw new Error("WebSocket 地址不能为空且不能超过 2000 个字符");
+  if (topic.length > 256) throw new Error("IoT topic 不能超过 256 个字符");
+  let parsed: URL;
+  try {
+    parsed = new URL(endpoint);
+  } catch {
+    throw new Error("IoT feed 地址必须是有效的 ws:// 或 wss:// URL");
+  }
+  if (
+    !TWIN_FEED_PROTOCOLS.includes(parsed.protocol) ||
+    !parsed.hostname ||
+    parsed.username ||
+    parsed.password ||
+    parsed.hash
+  )
+    throw new Error("IoT feed 仅接受不含 userinfo/fragment 的 ws:// 或 wss:// 地址");
+  const feed = { kind: TwinFeed.Kind, url: parsed.toString(), topic };
+  park.feed = feed;
+  await writeJson(ctx, "park.json", park);
+  const source: IrDataSource = {
+    id: TwinFeed.SourceId,
+    kind: "iot",
+    uri: feed.url,
+    status: "pending",
+    issues: [],
+  };
+  const registered = (await readJson(ctx, "data-sources.json")) as { sources?: unknown[] } | null;
+  const registeredSources = Array.isArray(registered?.sources) ? registered.sources : [];
+  await writeJson(ctx, "data-sources.json", {
+    version: 1,
+    sources: [...registeredSources.filter((item) => (item as { id?: string } | null)?.id !== source.id), source],
+  });
+  const ir = await readJson(ctx, "ir.json");
+  if (isIrProgram(ir)) {
+    const dataSources = (ir.dataSources ?? []).filter((item) => item.id !== source.id);
+    await writeJson(ctx, "ir.json", { ...ir, dataSources: [...dataSources, source] });
+  }
+  return { ok: true, kind: feed.kind, topic, configured: true, sourceId: source.id };
+}
+
 /** Build the renderer-facing scene and operations data without changing canonical Twin IR. */
 function rendererSceneManifest(ir: IrProgram, feed?: ParkFile["feed"]) {
   const objects = ir.masterPlan.buildingOutlines
@@ -1175,6 +1226,7 @@ export const activate: Activate = () => ({
         hasIr: Boolean(await readJson(ctx, "ir.json")),
         hasManifest: Boolean(await readJson(ctx, "twin_manifest.json")),
         sourceCount,
+        feed: { configured: Boolean(park?.feed?.url), topic: park?.feed?.topic ?? "" },
         target: target && typeof target === "object" ? target : null,
       };
     }
@@ -1213,6 +1265,8 @@ export const activate: Activate = () => ({
         return registerDataSource(args, ctx);
       case Tool.ValidateDataSources:
         return validateDataSources(ctx);
+      case Tool.ConfigureIotFeed:
+        return configureIotFeed(args, ctx);
       default:
         throw new Error(MESSAGE.UnknownTool(name));
     }

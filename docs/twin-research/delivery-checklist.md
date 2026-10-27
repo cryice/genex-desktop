@@ -12,6 +12,7 @@
 - Godot and Babylon exports now each contain an in-project `TwinManifest.json` derived from Twin IR, with object outlines and IoT datasets. Godot reads it through `res://`; Babylon fetches it locally, so both semantic previews work before USD assembly.
 - Babylon objects include their device bindings, highlight active alarms, and show bound telemetry/alarm details when selected.
 - Babylon supports a read-only WebSocket IoT feed configured in `park.json`; it subscribes to the selected topic and applies matching device/property samples to bound scene targets. It never sends reverse-control commands.
+- `configure-iot-feed` validates and persists the WebSocket endpoint/topic in `park.json`, `data-sources.json`, and Twin IR when present.
 - Unreal's `TwinImport.json` is documented as a Genex integration contract; the USD Stage plugin opens the referenced `master_twin.usda`, while the sidecar manifests preserve semantic IDs and operations.
 
 ## Operating rules
@@ -25,7 +26,7 @@
 ## Verification
 
 - Biome checks pass for changed TypeScript files.
-- Manifest parses with Node and declares 15 tools, 21 skills and one project panel.
+- Manifest parses with Node and declares 16 tools, 21 skills and one project panel.
 - China standards mapping skill covers BIM/CIM, surveying, smart-city and security references without copying protected standard text.
 - `validate-data-sources` applies metadata gates before renderer export and records `ready` or `needs-metadata` status per source.
 - Ten iterations are recorded in [`iteration-plan.md`](./iteration-plan.md), including evidence and release follow-ups.

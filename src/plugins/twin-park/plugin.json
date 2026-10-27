@@ -337,6 +337,18 @@
         "type": "object",
         "properties": {}
       }
+    },
+    {
+      "name": "configure-iot-feed",
+      "description": "Configure the read-only Babylon IoT WebSocket feed and mirror it into data-sources.json and Twin IR. Accepts ws:// or wss:// URLs without URL userinfo or fragments; does not enable device commands.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Credential-free ws:// or wss:// gateway endpoint." },
+          "topic": { "type": "string", "description": "Optional gateway subscription topic, up to 256 characters." }
+        },
+        "required": ["url"]
+      }
     }
   ],
   "nativeRuntimes": [
