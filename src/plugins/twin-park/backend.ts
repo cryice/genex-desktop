@@ -841,16 +841,16 @@ async function exportTarget(ctx: PluginContext) {
   const target = await readJson(ctx, "twin-target.json");
   if (!target || typeof target !== "object") throw new Error("请先运行 configure-target 选择建模后端和渲染目标");
   const ir = await readJson(ctx, "ir.json");
-  if (!ir || typeof ir !== "object") throw new Error("请先生成 ir.json");
+  if (!isIrProgram(ir)) throw new Error("ir.json 不是合法的 Twin IR，请先生成并校验 ir.json");
   const manifest = {
     version: 1,
     target,
-    source: { ir: "ir.json", usd: "master_twin.usda", manifest: "twin_manifest.json" },
+    source: { ir: "../ir.json", usd: "../master_twin.usda", manifest: "../twin_manifest.json" },
     data: {
-      sources: "data-sources.json",
-      telemetry: "ir.json#/telemetry",
-      alarms: "ir.json#/alarms",
-      commands: "ir.json#/commands",
+      sources: "../data-sources.json",
+      telemetry: "../ir.json#/telemetry",
+      alarms: "../ir.json#/alarms",
+      commands: "../ir.json#/commands",
     },
     capabilities: ["scene", "object-properties", "telemetry", "alarms", "commands"],
     coordinateFrame: "local-enu",
@@ -859,7 +859,7 @@ async function exportTarget(ctx: PluginContext) {
   };
   await writeJson(ctx, "exports/twin-export.json", manifest);
   const selected = target as { renderer?: string };
-  if (selected.renderer === "godot") await writeGodotExport(ctx);
+  if (selected.renderer === "godot") await writeGodotExport(ctx, ir);
   if (selected.renderer === "unreal") await writeUnrealExport(ctx);
   if (selected.renderer === "babylon") await writeBabylonExport(ctx);
   return { ok: true, path: "exports/twin-export.json", target };
@@ -915,8 +915,28 @@ async function validateDataSources(ctx: PluginContext) {
   return { ok: invalid.length === 0, checked: checked.length, invalid: invalid.length, path: "data-sources.json" };
 }
 
-/** Write the small Godot runtime bridge; scene content remains generated from the manifest. */
-async function writeGodotExport(ctx: PluginContext): Promise<void> {
+/** Write a self-contained Godot project and runtime manifest derived from the canonical Twin IR. */
+async function writeGodotExport(ctx: PluginContext, ir: IrProgram): Promise<void> {
+  const objects = ir.masterPlan.buildingOutlines
+    .filter((outline) => ir.objects.some((object) => object.id === outline.id))
+    .map((outline) => ({
+      id: outline.id,
+      worldOutline: outline.ring,
+      floors: outline.floors,
+      storeyM: outline.heightM / Math.max(1, outline.floors),
+    }));
+  await writeJson(ctx, "exports/godot/TwinManifest.json", {
+    version: 1,
+    sceneClass: ir.sceneClass,
+    coordinateFrame: "local-enu",
+    units: "meters",
+    objects,
+    dataSources: ir.dataSources ?? [],
+    telemetry: ir.telemetry ?? [],
+    alarms: ir.alarms ?? [],
+    commands: ir.commands ?? [],
+    bindings: ir.bindings ?? [],
+  });
   await writeText(
     ctx,
     "exports/godot/project.godot",
@@ -927,7 +947,7 @@ async function writeGodotExport(ctx: PluginContext): Promise<void> {
     "exports/godot/TwinRuntime.gd",
     `extends Node3D
 
-@export_file("*.json") var manifest_path := "../twin-export.json"
+@export_file("*.json") var manifest_path := "res://TwinManifest.json"
 var twin_manifest: Dictionary = {}
 
 func _ready() -> void:
@@ -1019,7 +1039,7 @@ async function writeBabylonExport(ctx: PluginContext): Promise<void> {
     scene: "../../twin_manifest.json",
     coordinateFrame: "local-enu",
     units: "meters",
-    telemetry: { mode: "adapter", source: "twin_manifest.json" },
+    telemetry: { mode: "adapter", source: "../twin-export.json#/data/telemetry" },
   });
   await writeText(
     ctx,

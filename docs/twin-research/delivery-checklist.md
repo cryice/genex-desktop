@@ -9,6 +9,7 @@
 - `configure-target` writes `twin-target.json`.
 - `export-target` writes the engine-neutral manifest and renderer project skeletons under `exports/`.
 - The project panel exposes Data, Scene and Application sections.
+- Godot export now contains an in-project `TwinManifest.json` derived from validated Twin IR, with object outlines and IoT datasets; the runtime reads it through `res://`.
 
 ## Operating rules
 
