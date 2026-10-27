@@ -700,7 +700,7 @@
       "args": [
         "-b",
         "--factory-startup",
-        "--noaudio",
+        "-noaudio",
         "--python-exit-code",
         "1",
         "--python",

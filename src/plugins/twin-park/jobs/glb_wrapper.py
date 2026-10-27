@@ -5,6 +5,10 @@ route loads — the same engine-agnostic package serving a second route (P6). Th
 local origin and its name becomes the twin tag the page's scene checks read.
 """
 import sys
+from pathlib import Path
+
+# Blender's --python launcher does not consistently add the script's directory to sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 try:
     import bpy

@@ -28,7 +28,9 @@
 
 ## Release evidence still required
 
+- Blender 5.2.1 LTS USD-to-GLB conversion was verified locally using the repository job script; the fixture and output are temporary evidence and are not part of the project.
 - On a machine with Unreal installed, open `exports/unreal/TwinImport.json`, import the referenced USD layer, and record the engine version and result in the project evidence.
+- On a machine with Godot 4 installed, open `exports/godot/project.godot`, run the project and record the engine version and result.
 - For offline Babylon delivery, replace the generated CDN script with a pinned project asset and record the Babylon.js version and license in `THIRD-PARTY-NOTICES.md`.
 - Resolve the existing upstream provider/sandbox TypeScript errors before treating the repository typecheck as a release gate.
 - Full repository typecheck currently has unrelated baseline errors in upstream provider/sandbox integration; these must be resolved before a release gate.
