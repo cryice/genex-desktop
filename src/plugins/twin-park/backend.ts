@@ -916,7 +916,7 @@ async function validateDataSources(ctx: PluginContext) {
 }
 
 /** Build the renderer-facing scene and operations data without changing canonical Twin IR. */
-function rendererSceneManifest(ir: IrProgram) {
+function rendererSceneManifest(ir: IrProgram, feed?: ParkFile["feed"]) {
   const objects = ir.masterPlan.buildingOutlines
     .filter((outline) => ir.objects.some((object) => object.id === outline.id))
     .map((outline) => ({
@@ -939,6 +939,7 @@ function rendererSceneManifest(ir: IrProgram) {
     alarms: ir.alarms ?? [],
     commands: ir.commands ?? [],
     bindings: ir.bindings ?? [],
+    ...(feed?.kind === "websocket" && feed.url ? { feed } : {}),
   };
 }
 
@@ -1044,13 +1045,14 @@ async function writeUnrealExport(ctx: PluginContext): Promise<void> {
 
 /** Write the Babylon preview contract consumed by the browser adapter. */
 async function writeBabylonExport(ctx: PluginContext, ir: IrProgram): Promise<void> {
-  await writeJson(ctx, "exports/babylon/TwinManifest.json", rendererSceneManifest(ir));
+  const park = await readPark(ctx);
+  await writeJson(ctx, "exports/babylon/TwinManifest.json", rendererSceneManifest(ir, park?.feed));
   await writeJson(ctx, "exports/babylon/twin-preview.json", {
     manifest: "../twin-export.json",
     scene: "TwinManifest.json",
     coordinateFrame: "local-enu",
     units: "meters",
-    telemetry: { mode: "adapter", source: "../twin-export.json#/data/telemetry" },
+    telemetry: { mode: park?.feed?.url ? "websocket" : "snapshot", source: "TwinManifest.json#/telemetry" },
   });
   await writeText(
     ctx,
@@ -1068,6 +1070,8 @@ async function writeBabylonExport(ctx: PluginContext, ir: IrProgram): Promise<vo
   const canvas = document.querySelector('#renderCanvas');
   const status = document.querySelector('#status');
   const detail = document.querySelector('#detail');
+  let selectedItem = null;
+  const latest = new Map();
   const engine = new BABYLON.Engine(canvas, true);
   const scene = new BABYLON.Scene(engine);
   scene.clearColor = new BABYLON.Color4(0.04, 0.07, 0.12, 1);
@@ -1091,16 +1095,48 @@ async function writeBabylonExport(ctx: PluginContext, ir: IrProgram): Promise<vo
     mesh.material = material;
     mesh.actionManager = new BABYLON.ActionManager(scene);
     mesh.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPickTrigger, () => {
-      const bindings = item.bindingKeys || [];
-      const telemetry = (manifest.telemetry || []).filter((sample) => devices.includes(sample.device));
-      const alarms = (manifest.alarms || []).filter((alarm) => devices.includes(alarm.device));
-      const lines = [item.id, ...bindings.map((binding) => binding.device + '.' + binding.property + ' → ' + binding.target), ...telemetry.map((sample) => sample.device + '.' + sample.property + ' = ' + sample.value + (sample.unit ? ' ' + sample.unit : '') + ' [' + sample.quality + ']'), ...alarms.map((alarm) => alarm.severity + ': ' + alarm.message)];
-      detail.textContent = lines.join('\\n');
+      selectedItem = item;
+      showDetails(item, manifest);
     }));
     return mesh;
   }
+  function showDetails(item, manifest) {
+    const bindings = item.bindingKeys || [];
+    const devices = bindings.map((binding) => binding.device);
+    const telemetry = (manifest.telemetry || []).filter((sample) => devices.includes(sample.device)).map((sample) => latest.get(sample.device + '.' + sample.property) || sample);
+    const alarms = (manifest.alarms || []).filter((alarm) => devices.includes(alarm.device));
+    const lines = [item.id, ...bindings.map((binding) => binding.device + '.' + binding.property + ' → ' + binding.target), ...telemetry.map((sample) => sample.device + '.' + sample.property + ' = ' + sample.value + (sample.unit ? ' ' + sample.unit : '') + ' [' + sample.quality + ']'), ...alarms.map((alarm) => alarm.severity + ': ' + alarm.message)];
+    detail.textContent = lines.join('\\n');
+  }
+  function connectFeed(manifest) {
+    const feed = manifest.feed;
+    if (!feed || feed.kind !== 'websocket' || !feed.url) return;
+    let socket;
+    try { socket = new WebSocket(feed.url); } catch (error) { status.textContent = 'IoT connection error: ' + error.message; return; }
+    socket.addEventListener('open', () => { status.dataset.connection = 'connected'; if (feed.topic) socket.send(JSON.stringify({type:'subscribe',topic:feed.topic})); });
+    socket.addEventListener('message', (event) => {
+      let sample;
+      try { sample = JSON.parse(String(event.data)); } catch { return; }
+      if (typeof sample.device !== 'string' || typeof sample.property !== 'string' || !('value' in sample)) return;
+      latest.set(sample.device + '.' + sample.property, {device:sample.device,property:sample.property,value:sample.value,unit:sample.unit,at:sample.at,quality:sample.quality || 'good'});
+      for (const mesh of scene.meshes) {
+        const binding = (mesh.metadata?.bindingKeys || []).find((entry) => entry.device === sample.device && entry.property === sample.property);
+        if (!binding) continue;
+        const [target, field] = String(binding.target).split('.');
+        const value = sample.value;
+        if (target === 'visibility') mesh.setEnabled(value === true || Number(value) > 0);
+        if (target === 'position' && field in mesh.position) mesh.position[field] = Number(value);
+        if (target === 'rotation' && field in mesh.rotation) mesh.rotation[field] = Number(value);
+        if (target === 'scaling' && field in mesh.scaling) mesh.scaling[field] = Number(value);
+        if (target === 'material' && field === 'emissive' && mesh.material && Number.isFinite(Number(value))) mesh.material.emissiveColor = new BABYLON.Color3(0, Math.max(0, Math.min(1, Number(value))), 0);
+      }
+      if (selectedItem) showDetails(selectedItem, manifest);
+    });
+    socket.addEventListener('close', () => { status.dataset.connection = 'disconnected'; });
+    socket.addEventListener('error', () => { status.dataset.connection = 'error'; });
+  }
   Promise.all([fetch('twin-preview.json').then((r) => r.json()), fetch('TwinManifest.json').then((r) => r.json())])
-    .then(([preview, manifest]) => { (manifest.objects || []).forEach((item) => objectMesh(item, manifest)); status.textContent = 'Twin preview ready · ' + (manifest.objects || []).length + ' objects · ' + (manifest.telemetry || []).length + ' measurements · ' + (manifest.alarms || []).filter((alarm) => alarm.active).length + ' active alarms · ' + preview.coordinateFrame + ' · ' + preview.units; })
+    .then(([preview, manifest]) => { (manifest.objects || []).forEach((item) => objectMesh(item, manifest)); status.textContent = 'Twin preview ready · ' + (manifest.objects || []).length + ' objects · ' + (manifest.telemetry || []).length + ' snapshot measurements · ' + (manifest.alarms || []).filter((alarm) => alarm.active).length + ' active alarms · ' + preview.coordinateFrame + ' · ' + preview.units; connectFeed(manifest); })
     .catch((error) => { status.textContent = 'Twin preview error: ' + error.message; });
   engine.runRenderLoop(() => scene.render());
   addEventListener('resize', () => engine.resize());
