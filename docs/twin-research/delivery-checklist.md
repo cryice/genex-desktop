@@ -28,7 +28,7 @@
 
 ## Release evidence still required
 
-- Blender 5.2.1 LTS USD-to-GLB conversion was verified locally using the repository job script; the fixture and output are temporary evidence and are not part of the project.
+- Blender 5.2.1 LTS USD-to-GLB conversion was verified locally using the repository job script; the output re-imported as one `test-building` mesh with 24 vertices. Raw fixture and output are retained under ignored `.studio-dev/evidence/twin-blender-probe/`.
 - On a machine with Unreal installed, open `exports/unreal/TwinImport.json`, import the referenced USD layer, and record the engine version and result in the project evidence.
 - On a machine with Godot 4 installed, open `exports/godot/project.godot`, run the project and record the engine version and result.
 - For offline Babylon delivery, replace the generated CDN script with a pinned project asset and record the Babylon.js version and license in `THIRD-PARTY-NOTICES.md`.

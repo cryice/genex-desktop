@@ -21,6 +21,6 @@
 
 - 完整仓库 TypeScript 检查仍受上游 provider/sandbox 类型错误影响，需要单独清理。
 - Unreal 当前输出是可审查的 OpenUSD 导入描述和 manifest，生产环境仍需在安装 Unreal 的机器上完成导入验证。
-- 本机 Blender 5.2.1 LTS 已验证：仓库 USD→GLB 作业成功导入临时 USD 并导出包含 1 个对象的 GLB（1,540 字节）。本次验证也修复了 `-noaudio` 参数拼写和 Blender 脚本目录导入路径。
+- 本机 Blender 5.2.1 LTS 已验证：仓库 USD→GLB 作业成功导入临时 USD 并导出 1,540 字节 GLB；清空场景后重新导入该 GLB，得到 1 个名为 `test-building` 的网格和 24 个顶点。本次验证也修复了 `-noaudio` 参数拼写和 Blender 脚本目录导入路径。
 - Godot 尚未安装，仍需在具备 Godot 4 的环境中启动导出工程进行运行验证。
 - Babylon.js 使用 CDN 运行时，离线交付需要在项目资产中固定 Babylon.js 版本并记录许可证。
