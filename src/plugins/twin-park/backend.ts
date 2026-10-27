@@ -861,7 +861,7 @@ async function exportTarget(ctx: PluginContext) {
   const selected = target as { renderer?: string };
   if (selected.renderer === "godot") await writeGodotExport(ctx, ir);
   if (selected.renderer === "unreal") await writeUnrealExport(ctx);
-  if (selected.renderer === "babylon") await writeBabylonExport(ctx);
+  if (selected.renderer === "babylon") await writeBabylonExport(ctx, ir);
   return { ok: true, path: "exports/twin-export.json", target };
 }
 
@@ -915,8 +915,8 @@ async function validateDataSources(ctx: PluginContext) {
   return { ok: invalid.length === 0, checked: checked.length, invalid: invalid.length, path: "data-sources.json" };
 }
 
-/** Write a self-contained Godot project and runtime manifest derived from the canonical Twin IR. */
-async function writeGodotExport(ctx: PluginContext, ir: IrProgram): Promise<void> {
+/** Build the renderer-facing scene and operations data without changing canonical Twin IR. */
+function rendererSceneManifest(ir: IrProgram) {
   const objects = ir.masterPlan.buildingOutlines
     .filter((outline) => ir.objects.some((object) => object.id === outline.id))
     .map((outline) => ({
@@ -925,7 +925,7 @@ async function writeGodotExport(ctx: PluginContext, ir: IrProgram): Promise<void
       floors: outline.floors,
       storeyM: outline.heightM / Math.max(1, outline.floors),
     }));
-  await writeJson(ctx, "exports/godot/TwinManifest.json", {
+  return {
     version: 1,
     sceneClass: ir.sceneClass,
     coordinateFrame: "local-enu",
@@ -936,7 +936,12 @@ async function writeGodotExport(ctx: PluginContext, ir: IrProgram): Promise<void
     alarms: ir.alarms ?? [],
     commands: ir.commands ?? [],
     bindings: ir.bindings ?? [],
-  });
+  };
+}
+
+/** Write a self-contained Godot project and runtime manifest derived from the canonical Twin IR. */
+async function writeGodotExport(ctx: PluginContext, ir: IrProgram): Promise<void> {
+  await writeJson(ctx, "exports/godot/TwinManifest.json", rendererSceneManifest(ir));
   await writeText(
     ctx,
     "exports/godot/project.godot",
@@ -1019,24 +1024,27 @@ shadow_enabled = true
 async function writeUnrealExport(ctx: PluginContext): Promise<void> {
   await writeJson(ctx, "exports/unreal/TwinImport.json", {
     sourceManifest: "../twin-export.json",
+    twinManifest: "../../twin_manifest.json",
+    ir: "../../ir.json",
     usdLayer: "../../master_twin.usda",
     coordinateFrame: "local-enu",
     units: "meters",
     importMode: "layered-usd",
-    bindings: "../../twin_manifest.json",
+    operations: "../twin-export.json#/data",
   });
   await writeText(
     ctx,
     "exports/unreal/README.md",
-    "# Twin Unreal export\n\nOpen this folder from the Unreal project importer, select `TwinImport.json`, then import the referenced OpenUSD layer. Keep Twin IR and the manifest as the source of truth.\n",
+    "# Twin Unreal export\n\n`TwinImport.json` is the Genex-to-Unreal integration contract, not a file that Unreal imports directly. Enable the USD Stage plugin in the target Unreal project, then open `../../master_twin.usda` through Unreal's USD Stage workflow. Keep meters and the USD stage's Z-up axis; preserve the `/World/Objects/<id>` prim paths when binding actors. Resolve object metadata and operations from the referenced `TwinManifest.json` and `twin-export.json`; do not use display names as stable ids.\n",
   );
 }
 
 /** Write the Babylon preview contract consumed by the browser adapter. */
-async function writeBabylonExport(ctx: PluginContext): Promise<void> {
+async function writeBabylonExport(ctx: PluginContext, ir: IrProgram): Promise<void> {
+  await writeJson(ctx, "exports/babylon/TwinManifest.json", rendererSceneManifest(ir));
   await writeJson(ctx, "exports/babylon/twin-preview.json", {
     manifest: "../twin-export.json",
-    scene: "../../twin_manifest.json",
+    scene: "TwinManifest.json",
     coordinateFrame: "local-enu",
     units: "meters",
     telemetry: { mode: "adapter", source: "../twin-export.json#/data/telemetry" },
@@ -1072,7 +1080,7 @@ async function writeBabylonExport(ctx: PluginContext): Promise<void> {
     mesh.metadata = item;
     return mesh;
   }
-  Promise.all([fetch('twin-preview.json').then((r) => r.json()), fetch('../../twin_manifest.json').then((r) => r.json())])
+  Promise.all([fetch('twin-preview.json').then((r) => r.json()), fetch('TwinManifest.json').then((r) => r.json())])
     .then(([preview, manifest]) => { (manifest.objects || []).forEach(objectMesh); status.textContent = 'Twin preview ready · ' + (manifest.objects || []).length + ' objects · ' + preview.coordinateFrame + ' · ' + preview.units; })
     .catch((error) => { status.textContent = 'Twin preview error: ' + error.message; });
   engine.runRenderLoop(() => scene.render());

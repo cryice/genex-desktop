@@ -9,7 +9,8 @@
 - `configure-target` writes `twin-target.json`.
 - `export-target` writes the engine-neutral manifest and renderer project skeletons under `exports/`.
 - The project panel exposes Data, Scene and Application sections.
-- Godot export now contains an in-project `TwinManifest.json` derived from validated Twin IR, with object outlines and IoT datasets; the runtime reads it through `res://`.
+- Godot and Babylon exports now each contain an in-project `TwinManifest.json` derived from Twin IR, with object outlines and IoT datasets. Godot reads it through `res://`; Babylon fetches it locally, so both semantic previews work before USD assembly.
+- Unreal's `TwinImport.json` is documented as a Genex integration contract; the USD Stage plugin opens the referenced `master_twin.usda`, while the sidecar manifests preserve semantic IDs and operations.
 
 ## Operating rules
 
