@@ -924,6 +924,9 @@ function rendererSceneManifest(ir: IrProgram) {
       worldOutline: outline.ring,
       floors: outline.floors,
       storeyM: outline.heightM / Math.max(1, outline.floors),
+      bindingKeys: (ir.bindings ?? [])
+        .filter((binding) => binding.prim.endsWith(outline.id))
+        .map((binding) => ({ device: binding.device, property: binding.property, target: binding.target })),
     }));
   return {
     version: 1,
@@ -1056,20 +1059,22 @@ async function writeBabylonExport(ctx: PluginContext, ir: IrProgram): Promise<vo
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Twin preview</title>
-<style>html,body,#renderCanvas{width:100%;height:100%;margin:0;overflow:hidden}#status{position:fixed;z-index:2;left:12px;top:10px;padding:6px 9px;border-radius:5px;background:#101827d9;color:#e8eef8;font:13px system-ui,sans-serif}</style>
+<style>html,body,#renderCanvas{width:100%;height:100%;margin:0;overflow:hidden}#status,#detail{position:fixed;z-index:2;padding:8px 10px;border-radius:5px;background:#101827e8;color:#e8eef8;font:13px/1.5 system-ui,sans-serif}#status{left:12px;top:10px}#detail{right:12px;top:10px;max-width:320px;white-space:pre-wrap}#detail:empty{display:none}</style>
 <div id="status">Twin preview loading…</div>
+<aside id="detail" aria-live="polite"></aside>
 <canvas id="renderCanvas"></canvas>
 <script src="https://cdn.babylonjs.com/babylon.js"></script>
 <script>
   const canvas = document.querySelector('#renderCanvas');
   const status = document.querySelector('#status');
+  const detail = document.querySelector('#detail');
   const engine = new BABYLON.Engine(canvas, true);
   const scene = new BABYLON.Scene(engine);
   scene.clearColor = new BABYLON.Color4(0.04, 0.07, 0.12, 1);
   const camera = new BABYLON.ArcRotateCamera('camera', -Math.PI / 2, 1.05, 120, BABYLON.Vector3.Zero(), scene);
   camera.attachControl(canvas, true);
   new BABYLON.HemisphericLight('sky', new BABYLON.Vector3(0, 1, 0), scene).intensity = 0.9;
-  function objectMesh(item) {
+  function objectMesh(item, manifest) {
     const ring = Array.isArray(item.worldOutline) ? item.worldOutline : [];
     const xs = ring.map((p) => Number(p.x) || 0), zs = ring.map((p) => Number(p.y) || 0);
     const width = Math.max(1, (Math.max(...xs, 1) - Math.min(...xs, 0)));
@@ -1078,10 +1083,24 @@ async function writeBabylonExport(ctx: PluginContext, ir: IrProgram): Promise<vo
     const mesh = BABYLON.MeshBuilder.CreateBox(item.id || 'object', {width, depth, height}, scene);
     mesh.position = new BABYLON.Vector3((Math.min(...xs, 0) + Math.max(...xs, 1)) / 2, height / 2, (Math.min(...zs, 0) + Math.max(...zs, 1)) / 2);
     mesh.metadata = item;
+    const devices = (item.bindingKeys || []).map((binding) => binding.device);
+    const activeAlarms = (manifest.alarms || []).filter((alarm) => alarm.active && devices.includes(alarm.device));
+    const material = new BABYLON.StandardMaterial('mat-' + item.id, scene);
+    material.diffuseColor = activeAlarms.some((alarm) => alarm.severity === 'critical') ? new BABYLON.Color3(0.72, 0.12, 0.1) : new BABYLON.Color3(0.18, 0.48, 0.72);
+    material.emissiveColor = activeAlarms.length ? new BABYLON.Color3(0.2, 0.04, 0.02) : BABYLON.Color3.Black();
+    mesh.material = material;
+    mesh.actionManager = new BABYLON.ActionManager(scene);
+    mesh.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPickTrigger, () => {
+      const bindings = item.bindingKeys || [];
+      const telemetry = (manifest.telemetry || []).filter((sample) => devices.includes(sample.device));
+      const alarms = (manifest.alarms || []).filter((alarm) => devices.includes(alarm.device));
+      const lines = [item.id, ...bindings.map((binding) => binding.device + '.' + binding.property + ' → ' + binding.target), ...telemetry.map((sample) => sample.device + '.' + sample.property + ' = ' + sample.value + (sample.unit ? ' ' + sample.unit : '') + ' [' + sample.quality + ']'), ...alarms.map((alarm) => alarm.severity + ': ' + alarm.message)];
+      detail.textContent = lines.join('\\n');
+    }));
     return mesh;
   }
   Promise.all([fetch('twin-preview.json').then((r) => r.json()), fetch('TwinManifest.json').then((r) => r.json())])
-    .then(([preview, manifest]) => { (manifest.objects || []).forEach(objectMesh); status.textContent = 'Twin preview ready · ' + (manifest.objects || []).length + ' objects · ' + preview.coordinateFrame + ' · ' + preview.units; })
+    .then(([preview, manifest]) => { (manifest.objects || []).forEach((item) => objectMesh(item, manifest)); status.textContent = 'Twin preview ready · ' + (manifest.objects || []).length + ' objects · ' + (manifest.telemetry || []).length + ' measurements · ' + (manifest.alarms || []).filter((alarm) => alarm.active).length + ' active alarms · ' + preview.coordinateFrame + ' · ' + preview.units; })
     .catch((error) => { status.textContent = 'Twin preview error: ' + error.message; });
   engine.runRenderLoop(() => scene.render());
   addEventListener('resize', () => engine.resize());

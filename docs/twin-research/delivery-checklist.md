@@ -10,6 +10,7 @@
 - `export-target` writes the engine-neutral manifest and renderer project skeletons under `exports/`.
 - The project panel exposes Data, Scene and Application sections.
 - Godot and Babylon exports now each contain an in-project `TwinManifest.json` derived from Twin IR, with object outlines and IoT datasets. Godot reads it through `res://`; Babylon fetches it locally, so both semantic previews work before USD assembly.
+- Babylon objects include their device bindings, highlight active alarms, and show bound telemetry/alarm details when selected.
 - Unreal's `TwinImport.json` is documented as a Genex integration contract; the USD Stage plugin opens the referenced `master_twin.usda`, while the sidecar manifests preserve semantic IDs and operations.
 
 ## Operating rules
