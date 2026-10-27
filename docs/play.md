@@ -370,11 +370,11 @@ frame only, `STUDIO_UI_ONLY`); prices, shares and counts are genex.games' own, n
   project, main records `item_drafted` in the chat (`main/core/item-draft.ts`) and announces
   `item.drafted`. The harness may write neither, and a draft an agent writes in words is text. The
   card goes up after the turn's reply, one per item (a newer draft replaces it), with the price,
-  **Other games can use it** and **Put on sale** ("or ask for changes below"); its presses call
-  `itemSetShared` and `itemPutOnSale` from main, so only the person puts an item on sale. Studio's
-  CLI runs never publish (`shop publish` is not in its command table). Put on sale shows only for a
-  draft or an item its author took off sale: an item a store that is off put on sale at once (D7)
-  says On sale, and `picture_missing` / `picture_invalid` ask the agent to upload the picture. The
+  **Other games can use it** (main's `itemSetShared`) and where its sale stands: "Draft · goes on sale
+  when you publish", On sale (read from Selling too, so a sale Studio made shows), or Off sale; changes
+  are the agent's ("Ask for changes below"). Nothing on the card puts an item on sale, and Studio's
+  CLI runs never publish (`shop publish` is not in its command table): Studio itself does, after a
+  publish (below). `picture_missing` / `picture_invalid` ask the agent to upload the picture. The
   agent's `shop add|set` takes the description, tags, sharing, Free and the game's picture, model
   and package files ([host tools](plugins.md#first-party-privileges)). The card needs CLI 1.36.14
   (`kind`/`version` in `--json`); the pin is 1.36.15.
@@ -382,25 +382,23 @@ frame only, `STUDIO_UI_ONLY`); prices, shares and counts are genex.games' own, n
   keeps it in the game's `.genex/items/` (`<localId>.json` and a `<localId>/` folder). Studio copies
   those drafts into each `shop` run's folder and carries a `shop add|set|remove`'s change back
   (`main/core/local-item-files.ts`: drafts only, never through a link, capped). Its card (`state:
-  "local"`, keyed by local id) says "Draft · goes on sale when you publish" and offers **Sell when
-  published**, the person's approval of its `contentHash`, kept in this profile's app data
-  (`<userData>/item-approvals.json`, `main/core/item-approvals.ts`), never in the game; pressed it
-  says "Will go on sale when you publish", with Undo. An approval names only a hash the CLI printed
-  for that draft; a newer draft says "It changed since you approved it." **Other games can use it** on a
-  local draft is main's own `shop set <localId> --shared|--no-shared`; the approval follows it only
-  when that run changed the very bytes the card showed (Studio's fingerprint of what the run took from
-  the game). Once the game's publish record says its publish made it public (`status: "published"`,
-  written last: a publish that failed part-way or is still running has none), `main/core/local-items.ts`
-  settles the game while one of its chats shows a local card or Studio's record holds a draft not yet uploaded:
-  on open, on focus (at most every 15 s, one at a time) and at once when a Genex publish finishes
-  (`chat/use-local-items.ts`). It runs Studio's own `shop sync --json` (never
-  an agent's; uploaded drafts leave the game), then puts on sale only drafts whose approval equals
-  the hash the sync reports (`itemPutOnSale`). The card then becomes the item's: On sale, a draft
-  with Put on sale ("…so it stayed a draft." when it changed), or genex.games' refusal; a refused
-  upload stays local with its reason. The outcome keeps the hash the sync sent: when it is not the
-  draft the card shows (the files were edited outside Studio), the card offers neither Put on sale nor
-  sharing and sends the person to Items › Selling, which shows the item as Genex holds it. Nothing in the game folder is read as an approval or a sync
-  result, so a `last-sync.json` from a terminal `genex publish` puts nothing on sale (D40).
+  "local"`, keyed by local id) says "Draft · goes on sale when you publish". **Other games can use it**
+  on a local draft is main's own `shop set <localId> --shared|--no-shared`. Once the game's publish
+  record says its publish made it public (`status: "published"`, written last: a publish that failed
+  part-way or is still running has none), `main/core/local-items.ts` settles the game while one of its
+  chats shows a local card or Studio's record (`<userData>/item-approvals.json`) holds a draft not yet
+  uploaded: on open, on focus (at most every 15 s, one at a time) and at once when a Genex publish
+  finishes (`chat/use-local-items.ts`). It runs Studio's own `shop sync --json` (never an agent's;
+  uploaded drafts leave the game) and puts every upload on sale (`itemPutOnSale`); right after a
+  publish it also puts on sale the game's items still drafts on genex.games (`hostedDraftIds` over
+  Selling), never on a mere focus, since only a publish carries the code that delivers them. The card
+  then becomes the item's: On sale, or genex.games' refusal; a refused upload stays local with its
+  reason. When the content Genex got is not the draft the card shows (files edited outside Studio),
+  the card offers no sharing and sends the person to Items › Selling. Nothing in the game folder names
+  what goes up, so a `last-sync.json` from a terminal `genex publish` uploads nothing.
+- The **Shop** tab (`panels/shop/`): beside Live and Builds once the game sells something, every item
+  of the game as its chat's cards show it (its local drafts, then its items Selling lists for its
+  hosted project), each with **Ask for changes**, which leaves `changeItemPrompt` in the game's chat.
 
 Fixtures: with `STUDIO_FIXTURE_GENEX_ACCOUNT=1`, `dev/fixture-store.ts` answers the store (Stick &
 Steel's store; the account's Snowball items); `--fixture items-store` makes the fixture game the

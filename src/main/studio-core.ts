@@ -160,10 +160,10 @@ import {
   standCredentialFile,
 } from "./core/genex-cli.ts";
 import { isLocalDraft, type ListingRecord } from "../shared/item-draft.ts";
-import { type CreatorItem, type StoreRefused, StoreRefusal } from "../shared/store-items.ts";
+import { type CreatorItem, type Selling, type StoreRefused, StoreRefusal } from "../shared/store-items.ts";
 import { ITEM_APPROVALS_FILE, ItemApprovals } from "./core/item-approvals.ts";
 import { hasLocalDrafts } from "./core/local-item-files.ts";
-import { LocalItems, type LocalItemsDeps } from "./core/local-items.ts";
+import { hostedDraftIds, LocalItems, type LocalItemsDeps } from "./core/local-items.ts";
 import { GenexPackageService } from "./core/genex-package.ts";
 import { boundGameFolder } from "./core/genex-bound-game.ts";
 import { assertPublishable } from "./core/genex-publish.ts";
@@ -476,6 +476,8 @@ export interface StudioCoreOptions {
    */
   localItems?: {
     putOnSale(skuId: string): Promise<CreatorItem | StoreRefused>;
+    /** The account's items on genex.games (Selling), for the drafts a publish puts on sale. */
+    selling(): Promise<Selling | StoreRefused>;
     runs?: Pick<LocalItemsDeps, "sync" | "setShared">;
   };
 }
@@ -1281,6 +1283,11 @@ export class StudioCore {
       setShared:
         options?.runs?.setShared ?? ((project, localId, shared) => cli.setLocalShared(project, localId, shared)),
       putOnSale: (skuId) => (options ? options.putOnSale(skuId) : Promise.resolve({ refused: StoreRefusal.Unknown })),
+      hostedDrafts: async (project) => {
+        const hosted = await cli.hostedProjectId(project);
+        if (!hosted || !options) return [];
+        return hostedDraftIds(await options.selling(), hosted);
+      },
       now: Date.now,
       changed: (project) => this.emit(UiEvent.ItemsLocal, { project }),
     });

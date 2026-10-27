@@ -10,8 +10,10 @@ Where it disagrees with this preface, this preface wins.
   a currency, each priced thing is a store item. List it first, with `shop add` and without asking,
   as soon as you know its name and price, so its card shows in the chat: before the SDK, the
   purchase flow or multiplayer, and before or after the game is published, because the card needs
-  nothing from the game. Then build it in and wire `buy()` and `getEntitlements()`. In a Loop the
-  lead lists the items itself at the start, and store items never wait on a multiplayer part. A
+  nothing from the game. Then build it in and wire `buy()` and `getEntitlements()`. In a Loop,
+  Studio lists the items the launch named before the build starts, and the run's GENEX STORE
+  line names each with its id; list any it says is not listed yet. Store items never wait on a
+  multiplayer part. A
   free thing needs no item. Take each price from the store's grid:
   `genex__cli {"command":"shop list"}` prints it once the game is on Genex, and the default grid is
   100, 300, 800, 1,200, 5,000, 20,000 and 50,000 Nex (0 is Free). Use the grid price nearest the
@@ -25,16 +27,19 @@ Where it disagrees with this preface, this preface wins.
   `image`, `model` and `package`, each a path inside this game, such as
   `".genex/scratch/frost-axe.png"`. Studio copies those files in itself and adds `--json`. It asks
   the person nothing, because a draft spends nothing and sells nothing; the card's **Put on sale**
-  is their decision. `genex shop set <id>` takes the same options plus `rename`, through
-  `genex__cli-paid`, which the person approves.
-- When the draft comes back, Studio draws its card in the chat after your reply, with **Put on
-  sale** and "Other games can use it". `genex shop publish` and `unpublish` are not available:
-  only the person puts an item on sale, from that card or Create › Items. Say it is ready and that
-  they can ask for changes.
+  is their decision. `genex shop set <id>` takes the same options plus `rename`: on a local draft (`local_…`)
+  through `genex__cli`, asking nobody, and on an item in the store through `genex__cli-paid`,
+  which the person approves.
+- Never ask the person whether an item is shared with other games, resellable, consumable or
+  which picture it gets before listing it: list it with what you know (`shared` only when they
+  said so). When the draft comes back, Studio draws its card in the chat after your reply, with
+  "Other games can use it", which is theirs, and shows it on the game's Shop tab. Studio puts every
+  item on sale itself when the game is published; `genex shop publish` and `unpublish` are not
+  available. Say it is listed, goes on sale with the next publish, and that they can ask for changes.
 - In a game that is not on Genex yet, `shop add` keeps the item as a local draft in
-  `.genex/items/` (its id starts `local_`; `shop set|remove <local id>` change it). Leave those
-  files to the CLI: Studio carries them. Its card offers **Sell when published**; after the game's
-  publish Studio uploads the drafts itself and puts on sale only what the person approved, unchanged.
+  `.genex/items/` (its id starts `local_`; `genex__cli` `shop set|remove <local id>` change it). Leave those
+  files to the CLI: Studio carries them. After the game's publish Studio uploads the drafts
+  itself and puts them on sale.
   `genex shop sync` is Studio's, not yours.
 - `genex items search "<words>"` is `genex__cli {"command":"items search","args":"<words>"}` (and
   `"options":{"tag":["fire"]}`), `genex items list` is `genex__cli {"command":"items list"}`, and

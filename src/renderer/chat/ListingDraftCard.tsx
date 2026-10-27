@@ -2,12 +2,12 @@
  * The Listing draft card (marketplace P11, plan 8.3; screen 09): a store item the game's agent made,
  * as its own `genex shop add --json` answered (`item_drafted`, a record only the host writes). It
  * shows the item's picture, name and description, its price, the "Other games can use it" toggle
- * and Put on sale, "or ask for changes below". Its presses go to genex.games through main
- * (`itemSetShared`, `itemPutOnSale`) as the person's own: the agent can neither press them nor draw
- * the card (D40). Once on sale it says so; an item an admin took off sale offers nothing (D14).
- * A local draft (made before the game is on Genex) says it goes on sale when the game is published
- * and offers "Sell when published", the person's approval kept by main; once the publish uploaded
- * it, the card is the item's on genex.games, with what became of it.
+ * and where its sale stands: a draft goes on sale when the game is published (Studio puts it on
+ * sale then, `core/local-items.ts`), and an item an admin took off sale offers nothing (D14). The
+ * toggle goes to genex.games through main (`itemSetShared`) as the person's own: the agent can
+ * neither press it nor draw the card (D40). Changes are the agent's: the chat's composer below, or
+ * Ask for changes on the Shop tab (`onAsk`). A local draft (made before the game is on Genex) is
+ * the item's card on genex.games once the publish uploaded it, with what became of it.
  */
 import type { JSX } from "react";
 import { useId } from "react";
@@ -17,12 +17,13 @@ import {
   type ListingRecord,
   type LocalListingDraft,
 } from "../../shared/item-draft.ts";
-import type { StoreRefusal } from "../../shared/store-items.ts";
+import { ItemState, type StoreRefusal } from "../../shared/store-items.ts";
 import { CoinMark } from "../play/CoinMark.tsx";
 import { ItemRender } from "../play/ItemRender.tsx";
 import { coinNumber, coinText, gameText } from "../play/purchase-model.ts";
 import { useItems } from "../state/hooks.ts";
-import { ItemAction, LocalAction } from "../state/items.ts";
+import { useLocalPicture } from "./item-picture.ts";
+import { LocalAction } from "../state/items.ts";
 import { studio } from "../state/studio.ts";
 import { Button } from "../ui/Button.tsx";
 import { Switch } from "../ui/switch.tsx";
@@ -35,7 +36,6 @@ import {
   listingCardView,
   localCard,
   localShareChange,
-  sellWhenPublished,
   shareChange,
 } from "./listing-draft.ts";
 
@@ -53,35 +53,34 @@ function Price({ coins }: { coins: number }): JSX.Element {
   );
 }
 
-/** Put on sale and what follows it, or where the sale stands once it is past. */
-function Sale({ view }: { view: ListingCardView }): JSX.Element {
+/** Where the item's sale stands: on sale, off sale, or a draft that goes on sale with the game's publish. */
+function SaleState({ view }: { view: ListingCardView }): JSX.Element {
   if (view.sale === ListingSale.OnSale)
     return (
       <p className="listing-sale-state" data-listing-on-sale>
         {WORDS.onSale}
       </p>
     );
-  if (view.sale === ListingSale.TakenDown) return <p className="listing-sale-state">{WORDS.offSale}</p>;
+  if (view.state === ItemState.Draft) return <p className="listing-local-status">{WORDS.draftStatus}</p>;
+  return <p className="listing-sale-state">{WORDS.offSale}</p>;
+}
+
+/** How the person changes the item: Ask for changes where the card has one (Shop), else the chat's composer below. */
+function AskForChanges({ onAsk }: { onAsk?: (() => void) | undefined }): JSX.Element {
+  if (!onAsk) return <p className="listing-or">{WORDS.askBelow}</p>;
   return (
     <div className="listing-actions">
-      <Button
-        variant="default"
-        data-listing-put-on-sale={view.itemId}
-        busy={view.sale === ListingSale.Pressing}
-        disabled={!view.canPutOnSale && view.sale !== ListingSale.Pressing}
-        onClick={() => void studio().items.change(view.itemId, ItemAction.PutOnSale)}
-      >
-        {WORDS.putOnSale}
+      <Button variant="outline" data-listing-ask onClick={onAsk}>
+        {WORDS.askForChanges}
       </Button>
-      <span className="listing-or">{WORDS.orAsk}</span>
     </div>
   );
 }
 
-/** The card for one draft: an item on genex.games, or a local draft. */
-export function ListingDraftCard({ draft }: { draft: ListingRecord }): JSX.Element {
-  if (isLocalDraft(draft)) return <LocalListingCard draft={draft} />;
-  return <ItemListingCard draft={draft} />;
+/** The card for one draft: an item on genex.games, or a local draft; `onAsk` asks the game's agent to change it. */
+export function ListingDraftCard({ draft, onAsk }: { draft: ListingRecord; onAsk?: () => void }): JSX.Element {
+  if (isLocalDraft(draft)) return <LocalListingCard draft={draft} onAsk={onAsk} />;
+  return <ItemListingCard draft={draft} onAsk={onAsk} />;
 }
 
 /**
@@ -94,13 +93,18 @@ function ItemListingCard({
   note = null,
   settled = null,
   locked = false,
+  onAsk,
 }: {
   draft: ListingDraft;
   note?: string | null;
   settled?: StoreRefusal | null;
   locked?: boolean;
+  onAsk?: (() => void) | undefined;
 }): JSX.Element {
-  const latest = useItems((s) => s.changed[draft.itemId]);
+  // A press's answer is the newest; else Selling's row, which follows a sale Studio made after a publish.
+  const pressed = useItems((s) => s.changed[draft.itemId]);
+  const listed = useItems((s) => s.selling.selling?.items.find((row) => row.id === draft.itemId));
+  const latest = pressed ?? (listed ? { state: listed.state, shareable: listed.shareable } : undefined);
   const busy = useItems((s) => s.busy[draft.itemId]);
   const refusal = useItems((s) => s.refused[draft.itemId]) ?? settled ?? undefined;
   const view = listingCardView(draft, latest, busy, refusal);
@@ -114,7 +118,10 @@ function ItemListingCard({
       aria-label={WORDS.listingLabel(name)}
     >
       <div className="listing-head">
-        <ItemRender item={{ id: view.itemId, iconUrl: view.iconUrl, modelUrl: null }} className="listing-render" />
+        <ItemRender
+          item={{ id: view.itemId, iconUrl: view.iconUrl ?? listed?.iconUrl ?? null, modelUrl: null }}
+          className="listing-render"
+        />
         <div className="listing-words">
           <h3 className="listing-name" dir="auto">
             {name}
@@ -140,7 +147,8 @@ function ItemListingCard({
           <label htmlFor={shareId}>{WORDS.shared}</label>
         </span>
       </div>
-      {!locked && <Sale view={view} />}
+      <SaleState view={view} />
+      {!locked && <AskForChanges onAsk={onAsk} />}
       {note && (
         <p className="listing-note" data-listing-stayed-draft>
           {note}
@@ -156,16 +164,28 @@ function ItemListingCard({
 }
 
 /** A local draft: the item's own card once its game's publish uploaded it, else its local card. */
-function LocalListingCard({ draft }: { draft: LocalListingDraft }): JSX.Element {
+function LocalListingCard({
+  draft,
+  onAsk,
+}: {
+  draft: LocalListingDraft;
+  onAsk?: (() => void) | undefined;
+}): JSX.Element {
   const view = useItems((s) => s.local[draft.project]);
   const busy = useItems((s) => s.localBusy[draft.localId]);
   const failed = useItems((s) => s.localFailed[draft.localId] === true);
   const card = localCard(draft, view, busy, failed);
   if ("uploaded" in card)
     return (
-      <ItemListingCard draft={card.uploaded} note={uploadedNote(card)} settled={card.refusal} locked={card.unseen} />
+      <ItemListingCard
+        draft={card.uploaded}
+        note={uploadedNote(card)}
+        settled={card.refusal}
+        locked={card.unseen}
+        onAsk={onAsk}
+      />
     );
-  return <LocalCard view={card.local} />;
+  return <LocalCard view={card.local} onAsk={onAsk} />;
 }
 
 /** What an uploaded local draft's card says of it: a version it never showed, or a change since approval. */
@@ -174,51 +194,11 @@ function uploadedNote(card: { changed: boolean; unseen: boolean }): string | nul
   return card.changed ? WORDS.stayedDraft : null;
 }
 
-/** "Sell when published" as it stands: offered, or pressed with its undo; nothing once removed. */
-function LocalSaleArea({ view }: { view: LocalCardView }): JSX.Element {
-  const { localId } = view.draft;
-  if (view.sale === LocalSale.Removed) return <p className="listing-sale-state">{WORDS.localRemoved}</p>;
-  const press = () => void studio().items.pressLocal(view.draft, sellWhenPublished(view.sale));
-  const approving = view.busy === LocalAction.Approve || view.busy === LocalAction.Withdraw;
-  if (view.sale === LocalSale.Approved)
-    return (
-      <div className="listing-actions">
-        <Button
-          variant="accent-outline"
-          aria-pressed="true"
-          data-listing-sell-when-published={localId}
-          busy={approving}
-          disabled={!view.canPress && !approving}
-          onClick={press}
-        >
-          {WORDS.willSell}
-        </Button>
-        <Button variant="ghost" data-listing-undo-sell={localId} disabled={!view.canPress} onClick={press}>
-          {WORDS.undoSell}
-        </Button>
-      </div>
-    );
-  return (
-    <div className="listing-actions">
-      <Button
-        variant="default"
-        aria-pressed="false"
-        data-listing-sell-when-published={localId}
-        busy={approving}
-        disabled={!view.canPress && !approving}
-        onClick={press}
-      >
-        {WORDS.sellWhenPublished}
-      </Button>
-      <span className="listing-or">{WORDS.orAsk}</span>
-    </div>
-  );
-}
-
-/** A local draft's card: it goes on sale when the game is published, if the person says so. */
-function LocalCard({ view }: { view: LocalCardView }): JSX.Element {
+/** A local draft's card: it goes on sale when the game is published. */
+function LocalCard({ view, onAsk }: { view: LocalCardView; onAsk?: (() => void) | undefined }): JSX.Element {
   const shareId = useId();
   const { draft } = view;
+  const picture = useLocalPicture(draft.project, draft.picture, draft.contentHash);
   const name = gameText(draft.name);
   const sharing = view.busy === LocalAction.Share || view.busy === LocalAction.Unshare;
   return (
@@ -229,13 +209,13 @@ function LocalCard({ view }: { view: LocalCardView }): JSX.Element {
       aria-label={WORDS.listingLabel(name)}
     >
       <div className="listing-head">
-        <ItemRender item={{ id: draft.localId, iconUrl: null, modelUrl: null }} className="listing-render" />
+        <ItemRender item={{ id: draft.localId, iconUrl: picture, modelUrl: null }} className="listing-render" />
         <div className="listing-words">
           <h3 className="listing-name" dir="auto">
             {name}
           </h3>
           <p className="listing-local-status" data-listing-local-status>
-            {WORDS.localStatus}
+            {WORDS.draftStatus}
           </p>
           {draft.description && (
             <p className="listing-description" dir="auto">
@@ -258,11 +238,10 @@ function LocalCard({ view }: { view: LocalCardView }): JSX.Element {
           <label htmlFor={shareId}>{WORDS.shared}</label>
         </span>
       </div>
-      <LocalSaleArea view={view} />
-      {view.sale === LocalSale.Changed && (
-        <p className="listing-note" data-listing-local-changed>
-          {WORDS.changedSinceApproved}
-        </p>
+      {view.sale === LocalSale.Removed ? (
+        <p className="listing-sale-state">{WORDS.localRemoved}</p>
+      ) : (
+        <AskForChanges onAsk={onAsk} />
       )}
       {view.refusal && (
         <p role="alert" className="listing-refusal">

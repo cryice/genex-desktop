@@ -287,6 +287,30 @@ describe("what the consent card shows for a paid call", () => {
   });
 });
 
+describe("a local draft's changes", () => {
+  // A draft made before the game is on Genex lives in the game's .genex/items/ and nobody can buy
+  // it: changing or removing it spends and sells nothing, so it asks nobody, as making it did.
+  const LOCAL = "local_abcdefghijkl";
+  const calls: Array<[string, Record<string, unknown>]> = [
+    ["a new picture", { command: "shop set", args: LOCAL, options: { image: ".genex/scratch/rod.png" } }],
+    ["a new price", { command: "shop set", args: LOCAL, options: { price: 300 } }],
+    ["its removal", { command: "shop remove", args: LOCAL }],
+  ];
+  for (const [name, args] of calls) {
+    it(`runs ${name} through the free tool, and no card asks about it`, () => {
+      assert.equal(genexCliRequest(args, FREE).paid, false);
+      assert.equal(refusal(args, PAID).code, GenexCliRefusalCode.FreeTool);
+      assert.throws(() => genexCliConsentArgs(args, PAID), GenexCliRefusal);
+    });
+  }
+  it("still asks about a change to an item in the store", () => {
+    const listed = { command: "shop set", args: "sku_1", options: { price: 300 } };
+    assert.equal(refusal(listed, FREE).code, GenexCliRefusalCode.PaidTool);
+    assert.equal(genexCliConsentArgs(listed, PAID).price, "300");
+    assert.equal(refusal({ command: "shop remove", args: "sku_1" }, FREE).code, GenexCliRefusalCode.PaidTool);
+  });
+});
+
 describe("a store item's fields (marketplace plan 8.1)", () => {
   it("passes a description, repeated tags, sharing and a Free price to `shop add`", () => {
     const request = genexCliRequest(

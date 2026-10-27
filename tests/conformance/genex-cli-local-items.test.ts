@@ -239,7 +239,7 @@ describe("a local `shop set` and `shop remove`", () => {
     const answer = await service(p, sandbox, drafts).run(
       { command: "shop set", args: ICE, options: { price: 250 } },
       bound(p),
-      { paid: true },
+      { paid: false },
     );
     assert.equal(answer.ok, true);
     const [run] = sandbox.seen;
@@ -272,7 +272,7 @@ describe("a local `shop set` and `shop remove`", () => {
       },
     });
     const answer = await service(p, sandbox, [], removed).run({ command: "shop remove", args: ICE }, bound(p), {
-      paid: true,
+      paid: false,
     });
     assert.equal(answer.ok, true);
     assert.deepEqual(Object.keys(await tree(gameItems(p))).sort(), [`${SLED}.json`, path.join(SLED, "picture.png")]);
@@ -686,7 +686,7 @@ describe("the person's Other games can use it on a local draft", () => {
     });
 });
 
-describe("only Studio uploads local drafts, and only the person puts one on sale (D40)", () => {
+describe("only Studio uploads local drafts and puts them on sale", () => {
   it("never runs `genex shop sync` for an agent, through either tool", () => {
     for (const paid of [true, false])
       assert.throws(

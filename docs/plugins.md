@@ -3382,9 +3382,10 @@ Genex:
   ProcessSandbox in a fresh `<userData>/genex-cli/<id>` folder (also its `HOME`), never a game
   folder, so the CLI's skill sync and contract healing touch only that folder, which is removed
   afterwards. `main/core/genex-cli-policy.ts` allows doctor, budget, `llm models|status|cancel`,
-  `shop list`, `shop add` (a draft spends and sells nothing, so no card asks) and `items list|search`
-  free, and `llm bench`, `shop set|remove|test` and `items add|remove` paid; everything else, `shop publish|unpublish` (only the person puts an item
-  on sale, D40), `shop sync` (Studio's own upload of local drafts after a publish, `syncLocalItems`), `budget --assets` (its allowance would live only in the removed run folder) and
+  `shop list`, `shop add` (a draft spends and sells nothing, so no card asks), `shop set|remove` on a
+  local draft (`freeOnLocalDraft`) and `items list|search` free, and `llm bench`, `shop set|remove`
+  on an item in the store, `shop test` and `items add|remove` paid; everything else, `shop publish|unpublish` (Studio puts a game's items
+  on sale after its publish), `shop sync` (Studio's own upload of local drafts after a publish, `syncLocalItems`), `budget --assets` (its allowance would live only in the removed run folder) and
   every flag Studio sets itself is refused with a typed reason naming the tool to use instead. A
   store item's `shop add|set` takes `price` (0 is Free), `type`, `description` (≤ 1000, `""` clears
   it on `set`), `tag` (one or a list, ≤ 10 × 32), `shared` (`--shared`/`--no-shared`) and `image`,

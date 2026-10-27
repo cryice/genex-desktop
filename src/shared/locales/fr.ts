@@ -6183,9 +6183,6 @@ export default {
   "It’s already this game’s own item.": "C’est déjà un objet propre à ce jeu.",
   "Listing draft: {name}": "Brouillon de vente : {name}",
   "Draft · goes on sale when you publish": "Brouillon · mis en vente quand tu publies",
-  "Sell when published": "Vendre à la publication",
-  "Will go on sale when you publish": "Sera mis en vente quand tu publieras",
-  "It changed since you approved it.": "Il a changé depuis que tu l’as approuvé.",
   "This item changed after this card. See it in Items › Selling before you put it on sale.":
     "Cet objet a changé après cette carte. Regarde-le dans Objets › Ventes avant de le mettre en vente.",
   "It changed since you approved it, so it stayed a draft.":
@@ -6225,9 +6222,11 @@ export default {
   "Your agent puts it in the game.": "Ton agent l’ajoute au jeu.",
   "You’ve put a lot on sale today. Try again tomorrow.":
     "Tu as déjà mis beaucoup en vente aujourd’hui. Réessaie demain.",
-  "or ask for changes below": "ou demande des changements ci-dessous",
   "{count, plural, one {in # game} other {in # games}}": "{count, plural, one {dans # jeu} other {dans # jeux}}",
   "{days, plural, one {On hold for # day} other {On hold for # days}}":
     "{days, plural, one {Bloquées # jour} other {Bloquées # jours}}",
   "{game} · {games}": "{game} · {games}",
+  "Ask for changes": "Demander des modifications",
+  "Ask for changes below": "Demande des modifications ci-dessous",
+  Shop: "Boutique",
 } satisfies LocaleCatalog;

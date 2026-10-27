@@ -40,6 +40,8 @@ export interface ListingCardView {
   description: string | null;
   iconUrl: string | null;
   priceCoins: number;
+  /** Its state on genex.games, as last read. */
+  state: ItemState;
   sale: ListingSale;
   /** Put on sale can be pressed now: offered, with no other press under way. */
   canPutOnSale: boolean;
@@ -81,6 +83,7 @@ export function listingCardView(
     description: draft.description,
     iconUrl: draft.iconUrl,
     priceCoins: draft.priceCoins,
+    state,
     sale,
     canPutOnSale: sale === ListingSale.Offer && busy === undefined,
     shared: latest?.shareable ?? draft.shareable,

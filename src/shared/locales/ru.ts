@@ -6117,9 +6117,6 @@ export default {
   "It’s already this game’s own item.": "Это уже собственный предмет этой игры.",
   "Listing draft: {name}": "Черновик товара: {name}",
   "Draft · goes on sale when you publish": "Черновик · поступит в продажу, когда опубликуешь",
-  "Sell when published": "Продавать после публикации",
-  "Will go on sale when you publish": "Поступит в продажу после публикации",
-  "It changed since you approved it.": "Он изменился после твоего одобрения.",
   "This item changed after this card. See it in Items › Selling before you put it on sale.":
     "Этот предмет изменился после этой карточки. Посмотри его в разделе Предметы › Продажи, прежде чем выставлять на продажу.",
   "It changed since you approved it, so it stayed a draft.":
@@ -6158,10 +6155,12 @@ export default {
   "You get per sale ({share})": "Ты получаешь с продажи ({share})",
   "Your agent puts it in the game.": "Агент добавит его в игру.",
   "You’ve put a lot on sale today. Try again tomorrow.": "Ты сегодня выставил много предметов. Попробуй завтра.",
-  "or ask for changes below": "или попроси изменения ниже",
   "{count, plural, one {in # game} other {in # games}}":
     "{count, plural, one {в # игре} few {в # играх} many {в # играх} other {в # игры}}",
   "{days, plural, one {On hold for # day} other {On hold for # days}}":
     "{days, plural, one {Удерживается # день} few {Удерживается # дня} many {Удерживается # дней} other {Удерживается # дня}}",
   "{game} · {games}": "{game} · {games}",
+  "Ask for changes": "Попросить изменения",
+  "Ask for changes below": "Попроси изменения ниже",
+  Shop: "Магазин",
 } satisfies LocaleCatalog;

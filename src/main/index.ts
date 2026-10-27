@@ -897,6 +897,7 @@ async function createCore(userData: string): Promise<StudioCore> {
     // launch uploads them to its own store in place of the CLI.
     localItems: {
       putOnSale: (skuId) => storeFor(studio).store.putOnSale(skuId),
+      selling: () => storeFor(studio).store.selling(),
       ...(fixtureNativePolicy
         ? {
             runs: fixtureLocalRuns({

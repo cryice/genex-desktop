@@ -6151,9 +6151,6 @@ export default {
   "It’s already this game’s own item.": "Já é um item próprio deste jogo.",
   "Listing draft: {name}": "Rascunho de venda: {name}",
   "Draft · goes on sale when you publish": "Rascunho · entra à venda quando você publicar",
-  "Sell when published": "Vender ao publicar",
-  "Will go on sale when you publish": "Vai entrar à venda quando você publicar",
-  "It changed since you approved it.": "Mudou desde que você aprovou.",
   "This item changed after this card. See it in Items › Selling before you put it on sale.":
     "Este item mudou depois deste cartão. Veja-o em Itens › Vendas antes de colocá-lo à venda.",
   "It changed since you approved it, so it stayed a draft.":
@@ -6192,9 +6189,11 @@ export default {
   "You get per sale ({share})": "Você recebe por venda ({share})",
   "Your agent puts it in the game.": "Seu agente coloca no jogo.",
   "You’ve put a lot on sale today. Try again tomorrow.": "Você colocou muita coisa à venda hoje. Tente amanhã.",
-  "or ask for changes below": "ou peça mudanças abaixo",
   "{count, plural, one {in # game} other {in # games}}": "{count, plural, one {em # jogo} other {em # jogos}}",
   "{days, plural, one {On hold for # day} other {On hold for # days}}":
     "{days, plural, one {Retido por # dia} other {Retido por # dias}}",
   "{game} · {games}": "{game} · {games}",
+  "Ask for changes": "Pedir alterações",
+  "Ask for changes below": "Peça alterações abaixo",
+  Shop: "Loja",
 } satisfies LocaleCatalog;

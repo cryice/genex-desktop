@@ -1869,7 +1869,14 @@ export const STAGE_WORDS = {
   /** The folded views' button: the switcher's name and the view it shows ("Game view: Builds"). */
   viewsButton: (view: string) => t("Game view: {view}", { view }),
   /** The view switcher's tabs; a folder with more than one Live view names each by what it shows. */
-  tabs: { live: t("Live"), builds: t("Builds"), assets: t("Assets"), webGame: t("Web game"), unreal: "Unreal" },
+  tabs: {
+    live: t("Live"),
+    builds: t("Builds"),
+    shop: t("Shop"),
+    assets: t("Assets"),
+    webGame: t("Web game"),
+    unreal: "Unreal",
+  },
 } as const;
 
 /** Live for a folder with no view of its own (Godot, Blender, files of its own): the latest pictures its runs kept. */
@@ -5461,19 +5468,14 @@ export const ITEMS_WORDS = {
   askAgent: t("Ask the agent to change it"),
   /** No design copy: Selling with nothing made yet. */
   noItems: t("Items you make show up here. Ask your game’s agent for one."),
-  // The Listing draft card (screen 09).
-  orAsk: t("or ask for changes below"),
+  // The Listing draft card (screen 09): in the chat its composer below takes a change; on Shop, a button.
+  askBelow: t("Ask for changes below"),
+  askForChanges: t("Ask for changes"),
   /** No design copy: the card once its item is on sale. */
   onSale: t("On sale"),
   listingLabel: (name: string) => t("Listing draft: {name}", { name }),
-  // A local draft's card: an item made before its game is on Genex.
-  localStatus: t("Draft · goes on sale when you publish"),
-  sellWhenPublished: t("Sell when published"),
-  /** "Sell when published", pressed. */
-  willSell: t("Will go on sale when you publish"),
-  undoSell: t("Undo"),
-  /** No design copy: the person approved what the draft held before the agent changed it. */
-  changedSinceApproved: t("It changed since you approved it."),
+  /** A draft, here or on Genex: Studio puts it on sale when the game is published. */
+  draftStatus: t("Draft · goes on sale when you publish"),
   /** No design copy: after the publish, a draft changed since its approval stays a draft. */
   stayedDraft: t("It changed since you approved it, so it stayed a draft."),
   /** No design copy: Genex got a version of the item this card never showed (an edit outside Studio). */

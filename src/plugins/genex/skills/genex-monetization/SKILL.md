@@ -27,9 +27,10 @@ unchanged. Where it disagrees with this preface, this preface wins.
 - The card's "Existing catalog items" commands are how every store item is listed in Studio:
   `npx genex shop list` is `genex__cli {"command":"shop list"}`, `npx genex shop add` is
   `genex__cli` with the item name in `args` and the flags by name in `options` (a draft, which asks
-  nobody), and `npx genex shop set|remove|test` is `genex__cli-paid` with the sku in `args`. The
+  nobody), and `npx genex shop set|remove|test` on an item in the store is `genex__cli-paid` with the sku in
+  `args` (on a local draft, `genex__cli`). The
   user approves each paid call, because it changes what the game sells. `genex shop publish` is not
-  available: the person puts an item on sale.
+  available: Studio puts the game's items on sale when it is published.
 - Other commands map onto Studio tools as the `genex` skill describes
   (`genex__skill {"name":"genex"}`).
 

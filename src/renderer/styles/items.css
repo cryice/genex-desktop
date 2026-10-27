@@ -447,6 +447,19 @@
 }
 
 /* ── The chat's Listing draft card ──────────────────────────────────────────────────────── */
+/* The stage's Shop tab: the game's item cards, as many to a row as the stage's width holds. */
+.shop-stage {
+  padding: 20px;
+}
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  align-items: start;
+  gap: 16px;
+}
+.shop-grid .listing-card {
+  max-width: none;
+}
 .listing-card {
   display: flex;
   flex-direction: column;

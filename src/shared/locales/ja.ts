@@ -6069,9 +6069,6 @@ export default {
   "It’s already this game’s own item.": "すでにこのゲームのアイテムです。",
   "Listing draft: {name}": "出品の下書き: {name}",
   "Draft · goes on sale when you publish": "下書き · 公開すると販売開始",
-  "Sell when published": "公開時に販売する",
-  "Will go on sale when you publish": "公開すると販売が始まります",
-  "It changed since you approved it.": "承認した後に変更されました。",
   "This item changed after this card. See it in Items › Selling before you put it on sale.":
     "このアイテムはこのカードの後に変更されました。販売する前に アイテム › 販売 で確認してください。",
   "It changed since you approved it, so it stayed a draft.": "承認した後に変更されたため、下書きのままです。",
@@ -6109,8 +6106,10 @@ export default {
   "You get per sale ({share})": "1回の売上での受け取り（{share}）",
   "Your agent puts it in the game.": "エージェントがゲームに組み込みます。",
   "You’ve put a lot on sale today. Try again tomorrow.": "今日はたくさん出品しました。明日また試してください。",
-  "or ask for changes below": "または下で変更を頼む",
   "{count, plural, one {in # game} other {in # games}}": "{count, plural, other {#ゲームで使用}}",
   "{days, plural, one {On hold for # day} other {On hold for # days}}": "{days, plural, other {#日間保留中}}",
   "{game} · {games}": "{game} · {games}",
+  "Ask for changes": "変更を依頼",
+  "Ask for changes below": "下で変更を依頼してください",
+  Shop: "ショップ",
 } satisfies LocaleCatalog;

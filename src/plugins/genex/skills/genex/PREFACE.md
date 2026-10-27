@@ -27,12 +27,14 @@ Where it disagrees with this preface, this preface wins.
 - `doctor`, `budget`, `llm models`, `llm status`, `llm cancel`, `shop list`, `shop add`,
   `items list` and `items search`: `genex__cli`. `budget --assets` is not available: Studio's own
   asset allowance and the user's approval govern asset spending. `shop add` asks nobody: it makes
-  a store item's draft, which spends nothing and sells nothing until the person puts it on sale.
-- `llm bench`, `shop set|remove|test` and `items add|remove`: `genex__cli-paid`. The user
+  a store item's draft, which spends nothing and sells nothing until Studio puts it on sale with the game's publish.
+  So do `shop set` and `shop remove` on a local draft (`local_…`).
+- `llm bench`, `shop set|remove` on an item in the store, `shop test` and `items add|remove`:
+  `genex__cli-paid`. The user
   approves each call, because it spends Nex (Genex's currency, which the cards call coin) or changes
   what the game sells. A store item's `image`, `model` and `package` name paths inside this game,
-  and `items add` writes `genex-items/<id>/` into it; `shop publish` is not available, because only
-  the person puts an item on sale. Read the `genex-items` skill first. A thing priced in Nex is a store item, listed this
+  and `items add` writes `genex-items/<id>/` into it; `shop publish` is not available, because Studio puts
+  a game's items on sale when it is published. Read the `genex-items` skill first. A thing priced in Nex is a store item, listed this
   way by default; coins, gold or gems are the game's own currency unless the person says they are
   for real money.
 - `publish` and `promote`: `genex__publish {"operation":"gallery"}`, which also updates the draft;

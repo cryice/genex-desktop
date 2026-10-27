@@ -5736,9 +5736,6 @@ export default {
   "It’s already this game’s own item.": "它已经是这个游戏自己的物品。",
   "Listing draft: {name}": "上架草稿：{name}",
   "Draft · goes on sale when you publish": "草稿 · 发布后开始销售",
-  "Sell when published": "发布时开售",
-  "Will go on sale when you publish": "发布后将开始销售",
-  "It changed since you approved it.": "在你批准之后它被修改了。",
   "This item changed after this card. See it in Items › Selling before you put it on sale.":
     "此物品在这张卡片之后被修改了。上架前请先在 物品 › 出售 中查看。",
   "It changed since you approved it, so it stayed a draft.": "在你批准之后它被修改了，所以仍是草稿。",
@@ -5773,8 +5770,10 @@ export default {
   "You get per sale ({share})": "每笔销售你获得（{share}）",
   "Your agent puts it in the game.": "智能体会把它加入游戏。",
   "You’ve put a lot on sale today. Try again tomorrow.": "你今天已上架了很多物品。请明天再试。",
-  "or ask for changes below": "或在下方请求修改",
   "{count, plural, one {in # game} other {in # games}}": "{count, plural, other {用于 # 个游戏}}",
   "{days, plural, one {On hold for # day} other {On hold for # days}}": "{days, plural, other {冻结 # 天}}",
   "{game} · {games}": "{game} · {games}",
+  "Ask for changes": "请求修改",
+  "Ask for changes below": "在下方请求修改",
+  Shop: "商店",
 } satisfies LocaleCatalog;

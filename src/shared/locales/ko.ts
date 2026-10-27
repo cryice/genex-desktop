@@ -5938,9 +5938,6 @@ export default {
   "It’s already this game’s own item.": "이미 이 게임의 아이템이에요.",
   "Listing draft: {name}": "판매 초안: {name}",
   "Draft · goes on sale when you publish": "초안 · 게시하면 판매 시작",
-  "Sell when published": "게시할 때 판매하기",
-  "Will go on sale when you publish": "게시하면 판매가 시작돼요",
-  "It changed since you approved it.": "승인한 뒤에 바뀌었어요.",
   "This item changed after this card. See it in Items › Selling before you put it on sale.":
     "이 아이템은 이 카드 이후에 바뀌었어요. 판매하기 전에 아이템 › 판매에서 확인해 주세요.",
   "It changed since you approved it, so it stayed a draft.": "승인한 뒤에 바뀌어서 초안으로 남았어요.",
@@ -5976,8 +5973,10 @@ export default {
   "You get per sale ({share})": "판매당 받는 금액 ({share})",
   "Your agent puts it in the game.": "에이전트가 게임에 넣어 줘요.",
   "You’ve put a lot on sale today. Try again tomorrow.": "오늘은 이미 많이 판매에 올렸어요. 내일 다시 시도하세요.",
-  "or ask for changes below": "또는 아래에서 변경을 요청하세요",
   "{count, plural, one {in # game} other {in # games}}": "{count, plural, other {게임 #개에서 사용}}",
   "{days, plural, one {On hold for # day} other {On hold for # days}}": "{days, plural, other {#일 동안 보류}}",
   "{game} · {games}": "{game} · {games}",
+  "Ask for changes": "변경 요청",
+  "Ask for changes below": "아래에서 변경을 요청하세요",
+  Shop: "상점",
 } satisfies LocaleCatalog;
