@@ -3657,6 +3657,7 @@ export const MESSAGES = [
   "Today",
   "Toggle Developer Tools",
   "Toggle Full Screen",
+  "Toggle sidebar",
   "Toggle terminal",
   "Too large to run locally",
   "Too large to save, so it stays as it is: {names}.",
@@ -3719,6 +3720,8 @@ export const MESSAGES = [
   "Turning it on lets its programs write in {count, plural, one {# folder} other {# folders}} outside your games:",
   "Turning it on lets its programs write in: {paths}",
   "Turning on…",
+  "Twin Studio",
+  "Twin Studio 插件未启用，请先安装并启用 twin-park 插件。",
   "Two Unreal editors are open. Quit the one you want from its own window.",
   "Two open Studios have a place named {name}, so Genex can't tell them apart. Save one under another name in Studio, then choose it again.",
   "Type a name.",
@@ -5096,6 +5099,7 @@ export const MESSAGES = [
   "×{count} during {phase}",
   "— the biggest of them: {problem}",
   "… Preview truncated at 256 KiB; original unchanged.",
+  "正在加载 Twin Studio…",
 ] as const;
 
 /** A catalog key the app asks for. */

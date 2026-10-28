@@ -44,11 +44,17 @@ const PLUGINS_ROOM = "plugins";
 const ITEMS_ROOM = "items";
 /** `data-room` while Play's dashboard covers it. */
 const PLAY_ROOM = "play";
+/** `data-room` while Twin Studio covers the workspace. */
+const TWIN_ROOM = "twin";
 
-/** The room `data-room` names: Plugins, Items or Play over the workspace, else the open conversation's. */
-const roomName = (chrome: { pluginsOpen: boolean; itemsOpen: boolean; playOpen: boolean }, room: string): string => {
+/** The room `data-room` names: Plugins, Items, Twin or Play over the workspace, else the open conversation's. */
+const roomName = (
+  chrome: { pluginsOpen: boolean; itemsOpen: boolean; twinOpen: boolean; playOpen: boolean },
+  room: string,
+): string => {
   if (chrome.pluginsOpen) return PLUGINS_ROOM;
   if (chrome.itemsOpen) return ITEMS_ROOM;
+  if (chrome.twinOpen) return TWIN_ROOM;
   return chrome.playOpen ? PLAY_ROOM : room;
 };
 
@@ -82,10 +88,25 @@ function Rooms({
           />
         </Suspense>
       )}
+      {chrome.twinOpen && (
+        <TwinRoom
+          project={project}
+          sidebarHidden={chrome.sidebarHidden}
+          onToggleSidebar={chrome.toggleSidebar}
+          onBack={() => chrome.setTwinOpen(false)}
+        />
+      )}
       {chrome.playOpen && !chrome.pluginsOpen && <PlayPages chrome={chrome} onNewGame={navigation.newGame} />}
     </>
   );
 }
+
+/**
+ * Twin Studio over the workspace: the twin-park plugin's project panel, reached from its own sidebar
+ * row. Loaded the first time it opens, as most sessions never do; shows the panel when the plugin is
+ * installed and active, and a notice otherwise.
+ */
+const TwinRoom = lazy(() => import("./plugins/twin-park/TwinRoom.tsx").then((room) => ({ default: room.TwinRoom })));
 
 export function App(): JSX.Element {
   const shell = useRef<HTMLDivElement>(null);

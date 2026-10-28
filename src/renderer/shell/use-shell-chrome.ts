@@ -85,6 +85,7 @@ function usePluginsRoom(dialogs: Dialogs, setDrawerOpen: (open: boolean) => void
  * The shell's chrome: the compact drawer, Plugins or Play over the workspace, and the sidebar toggle,
  * which puts focus on the toggle that replaces the one pressed.
  */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: the Twin Studio room wiring keeps this shell-chrome factory at capacity.
 export function useShellChrome(app: Studio, dialogs: Dialogs, sidebarOpen: boolean) {
   const { compactWindow, drawerOpen, setDrawerOpen } = useCompactWindow();
   // Play is the sidebar's other side: launch opens Create (home), and any way into Create leaves it.
@@ -97,13 +98,18 @@ export function useShellChrome(app: Studio, dialogs: Dialogs, sidebarOpen: boole
   }, []);
   const plugins = usePluginsRoom(dialogs, setDrawerOpen, leaveForPlugins);
   const { setPluginsOpen } = plugins;
+  // Twin Studio is a room like Plugins: opening it closes the other rooms so only one covers the workspace.
+  const twin = useTwinRoom(dialogs, setDrawerOpen, setPluginsOpen, setItemsOpen, setPlayOpen);
+  const { twinOpen, setTwinOpen, openTwin } = twin;
   const sidebarVisible = compactWindow ? drawerOpen : sidebarOpen;
+  /** Closing every room leaves the workspace alone; used by Escape and by opening a single room. */
   const closeOverlays = useCallback(() => {
     setPluginsOpen(false);
     setItemsOpen(false);
     setPlayOpen(false);
+    setTwinOpen(false);
     setDrawerOpen(false);
-  }, [setPluginsOpen, setDrawerOpen]);
+  }, [setPluginsOpen, setTwinOpen, setDrawerOpen]);
   /**
    * Create › Items, from its sidebar row: over the workspace, in Plugins' place. Pressed again while it
    * is open, the tab on show is read again (once its last read is old); opening it reads it anyway.
@@ -155,11 +161,15 @@ export function useShellChrome(app: Studio, dialogs: Dialogs, sidebarOpen: boole
       itemsOpen,
       setItemsOpen,
       openItems,
+      /** Twin Studio is up in place of the workspace. */
+      twinOpen,
+      setTwinOpen,
+      openTwin,
       /** Play's dashboard is up in place of the workspace. */
       playOpen,
       setPlayOpen: choosePlay,
-      /** Something covers the workspace (Plugins, Items or Play): it is hidden and inert. */
-      workspaceCovered: pluginsOpen || itemsOpen || playOpen,
+      /** Something covers the workspace (Plugins, Items, Twin or Play): it is hidden and inert. */
+      workspaceCovered: pluginsOpen || itemsOpen || playOpen || twinOpen,
       compactWindow,
       setDrawerOpen,
       sidebarVisible,
@@ -180,6 +190,9 @@ export function useShellChrome(app: Studio, dialogs: Dialogs, sidebarOpen: boole
       openItems,
       playOpen,
       choosePlay,
+      twinOpen,
+      openTwin,
+      setTwinOpen,
       compactWindow,
       setDrawerOpen,
       sidebarVisible,
@@ -193,3 +206,26 @@ export function useShellChrome(app: Studio, dialogs: Dialogs, sidebarOpen: boole
 
 /** The chrome the shell's hooks and parts share. */
 export type ShellChrome = ReturnType<typeof useShellChrome>;
+
+/**
+ * Twin Studio opens over the workspace from its sidebar row; opening it closes Plugins, Items and Play
+ * so only one room covers the workspace. It mirrors Plugins' room: opening it again keeps it open.
+ */
+function useTwinRoom(
+  dialogs: Dialogs,
+  setDrawerOpen: (open: boolean) => void,
+  setPluginsOpen: (open: boolean) => void,
+  setItemsOpen: (open: boolean) => void,
+  setPlayOpen: (open: boolean) => void,
+) {
+  const [twinOpen, setTwinOpen] = useState(false);
+  const openTwin = useCallback(() => {
+    setPluginsOpen(false);
+    setItemsOpen(false);
+    setPlayOpen(false);
+    setTwinOpen(true);
+    setDrawerOpen(false);
+    dialogs.dispatch({ type: "close-settings" });
+  }, [dialogs.dispatch, setDrawerOpen, setPluginsOpen, setItemsOpen, setPlayOpen]);
+  return { twinOpen, setTwinOpen, openTwin };
+}

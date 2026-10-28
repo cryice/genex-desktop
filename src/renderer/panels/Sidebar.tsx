@@ -74,6 +74,9 @@ interface Props {
   /** Create › Items is up (marketplace plan 10.3): its row is the selected one. */
   itemsOpen: boolean;
   onItems: () => void;
+  /** Twin Studio is up: the digital-twin workspace covers the workspace. */
+  twinOpen: boolean;
+  onTwin: () => void;
   /** Play is up: the rooms fold away and the list is the games played last. */
   playOpen: boolean;
   /** Play or Create, from the switch under the wordmark. */
@@ -493,6 +496,16 @@ function SidebarTop({
           {/* Create › Items: Browse other creators' items, and Selling your own (P9: Play has none). */}
           <NavRow icon="layers" aria-label={t("Items")} data-sidebar-room="items" current={itemsOpen} onClick={onItems}>
             {t("Items")}
+          </NavRow>
+          {/* Twin Studio: the digital-twin workspace, beside Play and Create (feat/twin-park). */}
+          <NavRow
+            icon="boxes"
+            aria-label={t("Twin Studio")}
+            data-sidebar-room="twin"
+            current={twinOpen}
+            onClick={onTwin}
+          >
+            {t("Twin Studio")}
           </NavRow>
           {studio && (
             <Hint label="Harness" shortcut="⌘2">

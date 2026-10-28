@@ -109,6 +109,8 @@ export function AppSidebar({
           onPlugins={chrome.openPlugins}
           itemsOpen={itemsOpen}
           onItems={chrome.openItems}
+          twinOpen={chrome.twinOpen}
+          onTwin={chrome.openTwin}
           playOpen={chrome.playOpen}
           onPlayMode={chrome.setPlayOpen}
           onSettings={() => dialogs.openSettings()}
