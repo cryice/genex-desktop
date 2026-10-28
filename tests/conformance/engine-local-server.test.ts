@@ -159,24 +159,34 @@ describe("connecting a local server", () => {
     assert.equal(server.requests.length, 0, "the server was never asked about a value that cannot be a key");
   });
 
-  it("refuses an address off this network, or not an address, and reaches nothing (hostile input)", async () => {
+  it("refuses malformed addresses without reaching anything", async () => {
     const server = await fake();
     const settings = memoryServerSettings();
     const local = await engine({ settings });
     const rows: Array<[unknown, string]> = [
-      ["https://api.openai.com/v1", "not_local"],
-      ["http://8.8.8.8:5000/v1", "not_local"],
       [`ftp://127.0.0.1:${server.port}/v1`, "scheme"],
       [`http://user:pass@127.0.0.1:${server.port}/v1`, "credentials"],
       [`${server.url}?x=1`, "malformed"],
       ["", "empty"],
       [{ toString: () => server.url }, "empty"],
-      ["http://nowhere.invalid:5000", "not_found"],
     ];
     for (const [url, problem] of rows)
       assert.deepEqual(await local.connect({ url, key: SERVER_KEY }), { ok: false, problem }, String(url));
     assert.equal(server.requests.length, 0, "a refused address is never reached");
     assert.equal(await settings.read(), null);
+  });
+
+  it("uses a NewAPI-style gateway key for model discovery and streamed completions", async () => {
+    const gateway = await fake({ keys: [SERVER_KEY] });
+    const local = await connected(gateway, { key: SERVER_KEY });
+    assert.equal((await local.status()).code, "ready");
+    assert.equal((await local.complete({ messages: [{ role: "user", content: "hello" }] })).message.content, "ok");
+    assert.ok(
+      gateway.requests.some(
+        (request) => request.path === "/v1/models" && request.authorization === `Bearer ${SERVER_KEY}`,
+      ),
+    );
+    assert.ok(chatCalls(gateway).some((request) => request.authorization === `Bearer ${SERVER_KEY}`));
   });
 
   it("says when nothing answers, and when what answers is not a model server", async () => {
@@ -286,6 +296,15 @@ describe("reading each server's models", () => {
       messages: [{ role: "user", content: "w ".repeat(60_000) }],
     });
     assert.equal(response.message.content, "ok", "the server's own limit decides");
+  });
+
+  it("uses the maintained context default for a NewAPI model that omits context metadata", async () => {
+    const server = await fake({ models: [{ id: "gpt-6.1-sol", object: "model", owned_by: "new-api" }] });
+    const local = await connected(server);
+    const [row] = await local.models();
+    assert.equal(row?.contextWindow, 131_072);
+    assert.equal(row?.contextSource, "catalog");
+    assert.match(row?.note ?? "", /131,072 token default/);
   });
 });
 

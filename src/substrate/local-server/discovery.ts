@@ -26,6 +26,18 @@ export const DISCOVERY_TIMEOUT_MS = 10 * SECOND_MS;
 const MAX_ANSWER_BYTES = 4 * 1024 * 1024;
 /** A model whose context the server does not report is planned for this much. */
 export const UNKNOWN_CONTEXT_TOKENS = 32_768;
+/** Conservative planning defaults for gateway aliases whose model list omits context metadata. */
+const DEFAULT_MODEL_CONTEXT: Readonly<Record<string, number>> = {
+  "gpt-6-luna": 262_144,
+  "gpt-6.1-sol": 131_072,
+  "gpt-5.6-terra": 131_072,
+  "gpt-6-sol": 131_072,
+  "gpt-5.6-luna": 131_072,
+  "deepseek-flash": 131_072,
+  "deepseek-v4-pro": 131_072,
+  "gpt-6-astra": 131_072,
+  "gpt-5.6-sol": 131_072,
+};
 /** A reply may use a quarter of the context, up to this many tokens. */
 const MAX_REPLY_TOKENS = 32_768;
 /** The statuses a server answers when it wants an API key. */
@@ -251,6 +263,8 @@ interface ModelFacts {
 /** What a row says when its server reports no context for it. */
 const MESSAGE = {
   UnknownContext: () => t("Context size not reported"),
+  DefaultContext: (tokens: number) =>
+    t("Context size not reported; using a {tokens} token default", { tokens: tokens.toLocaleString() }),
 } as const;
 
 const positive = (value: unknown): number | undefined =>
@@ -375,7 +389,11 @@ function merged(first: ModelFacts, later: ModelFacts | undefined): ModelFacts {
 
 /** A model as a picker row: unknown context planned for, tool calling taken as given unless refused. */
 function modelRow(id: string, facts: ModelFacts): EngineModel {
-  const context = facts.context ?? { tokens: UNKNOWN_CONTEXT_TOKENS, source: ModelContextSource.Unknown };
+  const fallback = DEFAULT_MODEL_CONTEXT[id];
+  const context = facts.context ?? {
+    tokens: fallback ?? UNKNOWN_CONTEXT_TOKENS,
+    source: fallback ? ModelContextSource.Catalog : ModelContextSource.Unknown,
+  };
   return {
     id,
     label: facts.label ?? id,
@@ -386,7 +404,7 @@ function modelRow(id: string, facts: ModelFacts): EngineModel {
     supportsVision: facts.vision ?? false,
     supportsThinking: false,
     installed: true,
-    ...(facts.context ? {} : { note: MESSAGE.UnknownContext() }),
+    ...(!facts.context ? { note: fallback ? MESSAGE.DefaultContext(fallback) : MESSAGE.UnknownContext() } : {}),
   };
 }
 

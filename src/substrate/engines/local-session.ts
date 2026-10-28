@@ -53,16 +53,16 @@ const LOCAL_SESSION_LIMITS = {
   /** Model turns when the request sets no cap. */
   maxTurns: 200,
   /** Tries at one completion, compacting the history between them. */
-  compactionAttempts: 5,
+  compactionAttempts: 8,
   /** Whole rounds of recent work the first compaction keeps; each retry keeps one fewer. */
-  keptRounds: 2,
+  keptRounds: 1,
   replyTokens: 3072,
   /** Replies cut off by the output limit before the session gives up on them. */
   outputRepairs: 2,
   /** Completed-action ids a checkpoint message lists (the count covers the rest). */
   listedActions: 50,
   /** A tool's answer as the model reads it, and as the chat previews it. */
-  toolReplyChars: 40_000,
+  toolReplyChars: 20_000,
   toolPreviewChars: 2_000,
   /** Tool rounds without a workspace change before the session stops, and the rounds that get a nudge. */
   idleRoundLimit: 16,

@@ -1,11 +1,9 @@
 /**
  * The address a person types for a model server they run themselves (LM Studio, llama.cpp,
- * TabbyAPI, vLLM, …): read into the base URL of its OpenAI-compatible API, and accepted only when
- * every address it names is on this computer or the local network. A server elsewhere is a hosted
- * API that may bill per token, which the app never treats as local (`shared/providers.ts`).
+ * TabbyAPI, vLLM, …) or a hosted OpenAI-compatible gateway such as NewAPI: read into the API base
+ * URL and check connectivity/authentication by requesting its model list.
  *
- * Reading is pure; only a name (not a number) is looked up, and a refused address is never looked
- * up or reached.
+ * Reading is pure and performs no DNS lookup or network request.
  */
 import { BlockList, isIP } from "node:net";
 import { AddressProblem } from "../../shared/local-server.ts";
@@ -115,8 +113,7 @@ export function readServerAddress(input: unknown): ReadAddress {
 }
 
 /**
- * Read a typed address and check it is local: a number by its range, a name by every address it
- * resolves to (one outside is enough to refuse it).
+ * Read a typed endpoint address; actual reachability and authentication are checked by the engine.
  */
 export async function localServerAddress(input: unknown, _lookup?: HostLookup): Promise<LocalAddress> {
   const read = readServerAddress(input);

@@ -18,7 +18,7 @@ import { CodexConnection } from "../../src/shared/codex-connection.ts";
 import { EngineStatusCode, type EngineStatus } from "../../src/shared/engine-descriptor.ts";
 import { CCSWITCH_WORDS } from "../../src/renderer/words.ts";
 
-const RELAY = { providerName: "My relay", host: "api.kytok.xyz", model: "gpt-5-codex" } as const;
+const RELAY = { providerName: "My relay", host: "relay.example.test", model: "gpt-5-codex" } as const;
 
 describe("the Codex row's connection", () => {
   it("offers the subscription first and cc-switch second, each with its own hint", () => {
@@ -60,12 +60,12 @@ describe("a cc-switch connection's row", () => {
   });
 
   it("names the selected provider and its relay, or nothing before the file is read", () => {
-    assert.equal(ccswitchProviderAt(RELAY), "My relay · api.kytok.xyz");
+    assert.equal(ccswitchProviderAt(RELAY), "My relay · relay.example.test");
     assert.equal(ccswitchProviderAt(undefined), null);
   });
 
   it("says the provider and what bills, even when the provider is unknown", () => {
-    assert.equal(ccswitchConnectedLine(RELAY), "My relay · api.kytok.xyz · billed by this provider");
+    assert.equal(ccswitchConnectedLine(RELAY), "My relay · relay.example.test · billed by this provider");
     assert.equal(ccswitchConnectedLine(undefined), CCSWITCH_WORDS.billedByProvider);
   });
 

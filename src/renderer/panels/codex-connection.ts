@@ -50,7 +50,7 @@ export function ccswitchRowState(status: Pick<EngineStatus, "code">): CcswitchRo
   return CCSWITCH_STATES[status.code] ?? CcswitchRowState.Unreadable;
 }
 
-/** "My relay · api.kytok.xyz": the selected provider, or null before cc-switch's file is read. */
+/** "My relay · relay.example.test": the selected provider, or null before cc-switch's file is read. */
 export function ccswitchProviderAt(ccswitch: CcswitchInfo | undefined): string | null {
   return ccswitch ? CCSWITCH_WORDS.providerAt(ccswitch.providerName, ccswitch.host) : null;
 }

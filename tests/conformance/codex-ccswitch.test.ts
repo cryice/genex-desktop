@@ -36,7 +36,7 @@ model_reasoning_effort = "low"
 notify = [ "C:\\\\Users\\\\chenm\\\\AppData\\\\Local\\\\OpenAI\\\\Codex\\\\runtimes\\\\cua_node\\\\78fb63cda1a9e2b2\\\\bin\\\\codex-computer-use.exe", "turn-ended" ]
 [model_providers.custom]
 name = "My Codex"
-base_url = "https://api.kytok.xyz/v1"
+base_url = "https://relay.example.test/v1"
 wire_api = "responses"
 requires_openai_auth = true
 
@@ -99,7 +99,7 @@ const read = (home: string, env: Record<string, string | undefined> = {}) => rea
 const PROVIDER: CcswitchProvider = {
   id: "custom",
   name: "My Codex",
-  baseUrl: "https://api.kytok.xyz/v1",
+  baseUrl: "https://relay.example.test/v1",
   wireApi: "responses",
   envKey: null,
   model: "gpt-6-astra",
@@ -123,7 +123,7 @@ describe("cc-switch config reading", () => {
     assert.equal(config.kind, "provider");
     if (config.kind !== "provider") return;
     assert.equal(config.provider.id, "custom");
-    assert.equal(config.provider.baseUrl, "https://api.kytok.xyz/v1");
+    assert.equal(config.provider.baseUrl, "https://relay.example.test/v1");
     assert.equal(config.key, "sk-test");
   });
 
@@ -142,7 +142,7 @@ describe("cc-switch config reading", () => {
   it("a config.toml with providers but no selection", async () => {
     const home = await codexHome(`model = "gpt-6-astra"
 [model_providers.custom]
-base_url = "https://api.kytok.xyz/v1"
+base_url = "https://relay.example.test/v1"
 `);
     const config = await read(home);
     assert.deepEqual(config, { kind: "none", reason: CcswitchAbsence.NoProvider });
@@ -151,7 +151,7 @@ base_url = "https://api.kytok.xyz/v1"
   it("a selection the file does not define", async () => {
     const home = await codexHome(`model_provider = "missing"
 [model_providers.custom]
-base_url = "https://api.kytok.xyz/v1"
+base_url = "https://relay.example.test/v1"
 `);
     const config = await read(home);
     assert.deepEqual(config, { kind: "none", reason: CcswitchAbsence.NoProvider });
@@ -232,20 +232,20 @@ wire_api = "grpc"
 
   it("comments, blank lines, CRLF and a BOM", async () => {
     const home = await codexHome(
-      '\uFEFF# cc-switch wrote this\r\nmodel_provider = "custom"\r\n\r\n[model_providers.custom]\r\nbase_url = "https://api.kytok.xyz/v1"\r\n# trailing comment\r\n',
+      '\uFEFF# cc-switch wrote this\r\nmodel_provider = "custom"\r\n\r\n[model_providers.custom]\r\nbase_url = "https://relay.example.test/v1"\r\n# trailing comment\r\n',
       { OPENAI_API_KEY: "sk-test" },
     );
     const config = await read(home);
     assert.equal(config.kind, "provider");
     if (config.kind !== "provider") return;
-    assert.equal(config.provider.baseUrl, "https://api.kytok.xyz/v1");
+    assert.equal(config.provider.baseUrl, "https://relay.example.test/v1");
   });
 
   it("escaped quotes in a basic string, and a literal string that keeps its backslashes", async () => {
     const home = await codexHome(
       String.raw`model_provider = "custom"
 [model_providers.custom]
-base_url = "https://api.kytok.xyz/v1"
+base_url = "https://relay.example.test/v1"
 name = "My \"Codex\" Studio"
 note = 'C:\Users\chenm\.codex stays one path'
 `,
@@ -260,7 +260,7 @@ note = 'C:\Users\chenm\.codex stays one path'
   it("a dotted key writes the provider table", async () => {
     const home = await codexHome(
       `model_provider = "custom"
-model_providers.custom.base_url = "https://api.kytok.xyz/v1"
+model_providers.custom.base_url = "https://relay.example.test/v1"
 model_providers.custom.wire_api = "chat"
 `,
       { OPENAI_API_KEY: "sk-test" },
@@ -268,7 +268,7 @@ model_providers.custom.wire_api = "chat"
     const config = await read(home);
     assert.equal(config.kind, "provider");
     if (config.kind !== "provider") return;
-    assert.equal(config.provider.baseUrl, "https://api.kytok.xyz/v1");
+    assert.equal(config.provider.baseUrl, "https://relay.example.test/v1");
     assert.equal(config.provider.wireApi, "chat");
   });
 
@@ -279,14 +279,14 @@ model_providers.custom.wire_api = "chat"
 base_url = "https://old.example/v1"
 name = "an old relay"
 [model_providers.custom]
-base_url = "https://api.kytok.xyz/v1"
+base_url = "https://relay.example.test/v1"
 `,
       { OPENAI_API_KEY: "sk-test" },
     );
     const config = await read(home);
     assert.equal(config.kind, "provider");
     if (config.kind !== "provider") return;
-    assert.equal(config.provider.baseUrl, "https://api.kytok.xyz/v1");
+    assert.equal(config.provider.baseUrl, "https://relay.example.test/v1");
     assert.equal(config.provider.name, null);
   });
 
@@ -294,7 +294,7 @@ base_url = "https://api.kytok.xyz/v1"
     const home = await codexHome(
       `model_provider = "custom"
 [model_providers.custom]
-base_url = "https://api.kytok.xyz/v1"
+base_url = "https://relay.example.test/v1"
 name = """line one
 line two # not a comment
 [not a table]"""
@@ -330,7 +330,7 @@ describe("cc-switch key resolution", () => {
 
   it("an inline bearer token is the key", async () => {
     const config = await withKey(
-      `[model_providers.custom]\nbase_url = "https://api.kytok.xyz/v1"\nexperimental_bearer_token = "sk-inline"\n`,
+      `[model_providers.custom]\nbase_url = "https://relay.example.test/v1"\nexperimental_bearer_token = "sk-inline"\n`,
     );
     assert.equal(config.kind, "provider");
     if (config.kind !== "provider") return;
@@ -339,7 +339,7 @@ describe("cc-switch key resolution", () => {
 
   it("the env_key's variable, read from the environment Genex was given", async () => {
     const config = await withKey(
-      `[model_providers.custom]\nbase_url = "https://api.kytok.xyz/v1"\nenv_key = "MY_RELAY_KEY"\n`,
+      `[model_providers.custom]\nbase_url = "https://relay.example.test/v1"\nenv_key = "MY_RELAY_KEY"\n`,
       null,
       { MY_RELAY_KEY: "sk-from-env" },
     );
@@ -350,7 +350,7 @@ describe("cc-switch key resolution", () => {
 
   it("an env_key whose variable is not set leaves no key", async () => {
     const config = await withKey(
-      `[model_providers.custom]\nbase_url = "https://api.kytok.xyz/v1"\nenv_key = "MY_RELAY_KEY"\n`,
+      `[model_providers.custom]\nbase_url = "https://relay.example.test/v1"\nenv_key = "MY_RELAY_KEY"\n`,
       { OPENAI_API_KEY: "sk-auth" },
       {},
     );
@@ -358,7 +358,7 @@ describe("cc-switch key resolution", () => {
   });
 
   it("auth.json's OPENAI_API_KEY", async () => {
-    const config = await withKey(`[model_providers.custom]\nbase_url = "https://api.kytok.xyz/v1"\n`, {
+    const config = await withKey(`[model_providers.custom]\nbase_url = "https://relay.example.test/v1"\n`, {
       OPENAI_API_KEY: "sk-auth",
     });
     assert.equal(config.kind, "provider");
@@ -368,22 +368,22 @@ describe("cc-switch key resolution", () => {
 
   it("a header's bearer", async () => {
     const config = await withKey(`[model_providers.custom]
-base_url = "https://api.kytok.xyz/v1"
+base_url = "https://relay.example.test/v1"
 [model_providers.custom.headers]
-authorization = "Bearer sk-header"
+authorization = "Bearer test-header"
 `);
     assert.equal(config.kind, "provider");
     if (config.kind !== "provider") return;
-    assert.equal(config.key, "sk-header");
+    assert.equal(config.key, "test-header");
   });
 
   it("an inline bearer beats the env_key, the env_key beats auth.json, auth.json beats the header", async () => {
     const table = `[model_providers.custom]
-base_url = "https://api.kytok.xyz/v1"
+base_url = "https://relay.example.test/v1"
 experimental_bearer_token = "sk-inline"
 env_key = "MY_RELAY_KEY"
 [model_providers.custom.headers]
-authorization = "Bearer sk-header"
+authorization = "Bearer test-header"
 `;
     const all = await withKey(table, { OPENAI_API_KEY: "sk-auth" }, { MY_RELAY_KEY: "sk-env" });
     assert.equal(all.kind, "provider");
@@ -391,7 +391,7 @@ authorization = "Bearer sk-header"
     assert.equal(all.key, "sk-inline");
 
     const noInline = await withKey(
-      `[model_providers.custom]\nbase_url = "https://api.kytok.xyz/v1"\nenv_key = "MY_RELAY_KEY"\n[model_providers.custom.headers]\nauthorization = "Bearer sk-header"\n`,
+      `[model_providers.custom]\nbase_url = "https://relay.example.test/v1"\nenv_key = "MY_RELAY_KEY"\n[model_providers.custom.headers]\nauthorization = "Bearer test-header"\n`,
       { OPENAI_API_KEY: "sk-auth" },
       { MY_RELAY_KEY: "sk-env" },
     );
@@ -400,7 +400,7 @@ authorization = "Bearer sk-header"
     assert.equal(noInline.key, "sk-env");
 
     const noEnv = await withKey(
-      `[model_providers.custom]\nbase_url = "https://api.kytok.xyz/v1"\n[model_providers.custom.headers]\nauthorization = "Bearer sk-header"\n`,
+      `[model_providers.custom]\nbase_url = "https://relay.example.test/v1"\n[model_providers.custom.headers]\nauthorization = "Bearer test-header"\n`,
       { OPENAI_API_KEY: "sk-auth" },
     );
     assert.equal(noEnv.kind, "provider");
@@ -410,7 +410,7 @@ authorization = "Bearer sk-header"
 
   it("an empty token is no token: the next source answers", async () => {
     const config = await withKey(
-      `[model_providers.custom]\nbase_url = "https://api.kytok.xyz/v1"\nexperimental_bearer_token = ""\nenv_key = "MY_RELAY_KEY"\n`,
+      `[model_providers.custom]\nbase_url = "https://relay.example.test/v1"\nexperimental_bearer_token = ""\nenv_key = "MY_RELAY_KEY"\n`,
       null,
       { MY_RELAY_KEY: "sk-from-env" },
     );
@@ -420,7 +420,7 @@ authorization = "Bearer sk-header"
   });
 
   it("no key anywhere is its own answer, distinct from no provider", async () => {
-    const config = await withKey(`[model_providers.custom]\nbase_url = "https://api.kytok.xyz/v1"\n`);
+    const config = await withKey(`[model_providers.custom]\nbase_url = "https://relay.example.test/v1"\n`);
     assert.deepEqual(config, { kind: "none", reason: CcswitchAbsence.NoKey });
   });
 
@@ -429,7 +429,7 @@ authorization = "Bearer sk-header"
     await mkdir(home, { recursive: true });
     await writeFile(
       path.join(home, "config.toml"),
-      `model_provider = "custom"\n[model_providers.custom]\nbase_url = "https://api.kytok.xyz/v1"\n`,
+      `model_provider = "custom"\n[model_providers.custom]\nbase_url = "https://relay.example.test/v1"\n`,
     );
     await writeFile(path.join(home, "auth.json"), "{ not json");
     const config = await read(home);
@@ -445,7 +445,7 @@ describe("the launch the provider is handed", () => {
       "-c",
       'model_providers.custom.name="My Codex"',
       "-c",
-      "model_providers.custom.base_url=https://api.kytok.xyz/v1",
+      "model_providers.custom.base_url=https://relay.example.test/v1",
       "-c",
       "model_providers.custom.wire_api=responses",
       "-c",
@@ -482,26 +482,26 @@ describe("the launch the provider is handed", () => {
 
   it("the key is in the environment, never in the argv", async () => {
     const home = await codexHome(
-      `model_provider = "custom"\n[model_providers.custom]\nbase_url = "https://api.kytok.xyz/v1"\nexperimental_bearer_token = "sk-inline-secret"\n`,
+      `model_provider = "custom"\n[model_providers.custom]\nbase_url = "https://relay.example.test/v1"\nexperimental_bearer_token = "test-inline-secret"\n`,
     );
     const config = await read(home);
     assert.equal(config.kind, "provider");
     if (config.kind !== "provider") return;
     const args = ccswitchProviderArgs(config.provider);
-    assert.ok(!args.some((arg) => arg.includes("sk-inline-secret")), JSON.stringify(args));
+    assert.ok(!args.some((arg) => arg.includes("test-inline-secret")), JSON.stringify(args));
     assert.ok(!args.some((arg) => arg.includes("GENEX_CODEX_PROVIDER_KEY=sk")), "the env var is a name, not a value");
-    assert.deepEqual(ccswitchLaunchEnv(config.key ?? ""), { [PROVIDER_KEY_ENV]: "sk-inline-secret" });
+    assert.deepEqual(ccswitchLaunchEnv(config.key ?? ""), { [PROVIDER_KEY_ENV]: "test-inline-secret" });
   });
 
   it("a trailing slash on the base_url is taken off", async () => {
     const home = await codexHome(
-      `model_provider = "custom"\n[model_providers.custom]\nbase_url = "https://api.kytok.xyz/v1/"\n`,
+      `model_provider = "custom"\n[model_providers.custom]\nbase_url = "https://relay.example.test/v1/"\n`,
       { OPENAI_API_KEY: "sk-test" },
     );
     const config = await read(home);
     assert.equal(config.kind, "provider");
     if (config.kind !== "provider") return;
-    assert.equal(config.provider.baseUrl, "https://api.kytok.xyz/v1");
+    assert.equal(config.provider.baseUrl, "https://relay.example.test/v1");
   });
 });
 
@@ -562,7 +562,7 @@ describe("cc-switch model discovery", () => {
       },
     );
     assert.equal(seen.length, 1);
-    assert.equal(seen[0]?.url, "https://api.kytok.xyz/v1/models");
+    assert.equal(seen[0]?.url, "https://relay.example.test/v1/models");
     assert.equal(seen[0]?.authorization, "Bearer sk-test");
   });
 

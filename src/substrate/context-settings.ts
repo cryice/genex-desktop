@@ -16,7 +16,7 @@ const STUDIO_COMPACTED_ENGINES: readonly string[] = [
   EngineId.LocalServer,
 ];
 /** Where the studio compacts a local engine's context when no threshold is set. */
-const LOCAL_DEFAULT_COMPACTION_PERCENT = 70;
+const LOCAL_DEFAULT_COMPACTION_PERCENT = 90;
 /** The longest engine, model and thread ids a settings key accepts. */
 const MAX_ENGINE_CHARS = 100;
 const MAX_MODEL_CHARS = 200;

@@ -56,7 +56,7 @@ describe("reading a typed server address", () => {
   });
 });
 
-describe("hostile and malformed addresses (nothing is looked up, nothing is reached)", () => {
+describe("malformed addresses (nothing is looked up, nothing is reached)", () => {
   const refused: Array<[unknown, AddressProblem]> = [
     ["", AddressProblem.Empty],
     ["   ", AddressProblem.Empty],
@@ -85,34 +85,18 @@ describe("hostile and malformed addresses (nothing is looked up, nothing is reac
       assert.deepEqual(asked, [], "a refused address is never looked up");
     });
 
-  const remote: Array<[string, Record<string, string[]>]> = [
-    ["http://8.8.8.8:5000", {}],
-    ["https://api.openai.com/v1", { "api.openai.com": ["104.18.33.45"] }],
-    ["http://[2606:4700::1111]:80", {}],
-    // A name that resolves to the network and to this computer at once is not local.
-    ["http://split.example:5000", { "split.example": ["127.0.0.1", "93.184.215.14"] }],
-    ["http://172.32.0.1:5000", {}],
-    ["http://100.128.0.1:5000", {}],
-    ["http://[::ffff:8.8.8.8]:5000", {}],
-  ];
-  for (const [typed, table] of remote)
-    it(`refuses ${typed}: not on this computer or the local network`, async () => {
-      const { lookup } = resolver(table);
-      assert.deepEqual(await localServerAddress(typed, lookup), { ok: false, problem: AddressProblem.NotLocal });
-    });
-
-  it("says a name it cannot find is not found, rather than not local", async () => {
+  it("accepts hosted OpenAI-compatible gateways such as NewAPI", async () => {
     const { asked, lookup } = resolver({});
-    assert.deepEqual(await localServerAddress("http://gpu-box:5000", lookup), {
-      ok: false,
-      problem: AddressProblem.NotFound,
+    assert.deepEqual(await localServerAddress("https://api.example.com/v1", lookup), {
+      ok: true,
+      baseUrl: "https://api.example.com/v1",
     });
-    assert.deepEqual(asked, ["gpu-box"]);
+    assert.deepEqual(asked, [], "the address is passed to the connection check without DNS locality restrictions");
   });
 });
 
-describe("local addresses", () => {
-  it("accepts this computer, the private ranges, link-local and a tailnet", async () => {
+describe("accepted addresses", () => {
+  it("accepts this computer, private ranges, tailnets and named hosts without resolving them", async () => {
     const { asked, lookup } = resolver({
       "gpu-box.local": ["192.168.1.20", "fe80::1"],
       "gpu.tail.ts.net": ["100.101.1.2"],
@@ -132,7 +116,7 @@ describe("local addresses", () => {
       const found = await localServerAddress(typed, lookup);
       assert.equal(found.ok, true, `${typed}: ${JSON.stringify(found)}`);
     }
-    assert.deepEqual(asked, ["gpu-box.local", "gpu.tail.ts.net"], "only names are looked up; numbers are read");
+    assert.deepEqual(asked, [], "connectivity is checked by the model-list request, not DNS locality");
   });
 
   it("knows the local ranges by number", () => {

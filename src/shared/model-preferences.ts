@@ -17,6 +17,8 @@ export type ReasoningEffort = (typeof ReasoningEffort)[keyof typeof ReasoningEff
 /** Request settings whose capabilities are advertised by the selected provider/model. */
 export interface ModelPreferences {
   fast?: boolean;
+  /** Optional client-side context budget override, in tokens. */
+  contextWindow?: number;
 }
 
 /** What a model offers: its context window, and whether it has a Fast mode. */
@@ -29,5 +31,8 @@ export interface ModelCapabilities {
 export function supportedPreferences(value: ModelPreferences, model: ModelCapabilities): ModelPreferences {
   return {
     ...(model.supportsFast && typeof value.fast === "boolean" ? { fast: value.fast } : {}),
+    ...(typeof value.contextWindow === "number" && Number.isInteger(value.contextWindow) && value.contextWindow > 0
+      ? { contextWindow: Math.min(value.contextWindow, model.contextWindow ?? value.contextWindow) }
+      : {}),
   };
 }

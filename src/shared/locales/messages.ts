@@ -756,6 +756,7 @@ export const MESSAGES = [
   "Context and usage",
   "Context settings could not be read. Repair or restore the host settings file before applying a custom threshold.",
   "Context size not reported",
+  "Context size not reported; using a {tokens} token default",
   "Context used",
   "Context window",
   "Context · {percent}% used",

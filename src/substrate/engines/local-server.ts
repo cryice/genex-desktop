@@ -56,6 +56,7 @@ import { answerDeltas, splitInlineThinking } from "../local-server/inline-thinki
 import type { SavedServer, ServerSettings } from "../local-server/settings.ts";
 import { HOUR_MS, SECOND_MS } from "../../shared/duration.ts";
 import { ContextSource } from "../../shared/context.ts";
+import { supportedPreferences } from "../../shared/model-preferences.ts";
 import { EngineKind, EngineStatusCode } from "../../shared/engine-descriptor.ts";
 import { EngineFailureKind } from "../../shared/engine-requests.ts";
 import {
@@ -460,7 +461,7 @@ export class LocalServerEngine implements Engine {
     const maxTokens = Math.min(request.maxTokens ?? row.maxTokens, row.maxTokens);
     this.#preflight(request, row, maxTokens);
     const key = await this.#key();
-    const { models, model } = await this.#provider(saved, row, key);
+    const { models, model } = await this.#provider(saved, row, key, request.preferences);
     try {
       const stream = (models as { stream: PiStreamFn }).stream(model, piContext(request, this.id), {
         fetch: longHaulFetch(request.signal),
@@ -502,7 +503,7 @@ export class LocalServerEngine implements Engine {
     const images = request.messages.reduce((n, m) => n + (m.images?.length ?? 0), 0);
     const promptTokens = estimatedPromptTokens(request);
     const required = promptTokens + images * IMAGE_RESERVE_TOKENS + maxTokens + TEMPLATE_SLACK_TOKENS;
-    const window = row.contextWindow;
+    const window = supportedPreferences(request.preferences ?? {}, row).contextWindow ?? row.contextWindow;
     const percent =
       request.contextPolicy?.mode === "custom"
         ? Number(request.contextPolicy.thresholdPercent)
@@ -535,11 +536,12 @@ export class LocalServerEngine implements Engine {
     saved: SavedServer,
     row: EngineModel,
     key: string | null,
+    preferences?: CompleteRequest["preferences"],
   ): Promise<{ models: unknown; model: unknown }> {
     const { createModels, createProvider } = await import("@earendil-works/pi-ai");
     const { openAICompletionsApi } = await import("@earendil-works/pi-ai/api/openai-completions.lazy");
     if (!this.#models) this.#models = createModels();
-    const model = this.#piModel(saved, row);
+    const model = this.#piModel(saved, row, preferences);
     (this.#models as { setProvider: (p: unknown) => void }).setProvider(
       createProvider({
         id: this.id,
@@ -563,7 +565,12 @@ export class LocalServerEngine implements Engine {
    * server reads: the system role, `max_tokens`, no `store`, no strict tool schemas and no reasoning
    * dial, which servers either reject or read in their own ways.
    */
-  #piModel(saved: SavedServer, row: EngineModel): Record<string, unknown> {
+  #piModel(
+    saved: SavedServer,
+    row: EngineModel,
+    preferences?: CompleteRequest["preferences"],
+  ): Record<string, unknown> {
+    const contextWindow = supportedPreferences(preferences ?? {}, row).contextWindow ?? row.contextWindow;
     return {
       id: row.id,
       name: row.label,
@@ -574,7 +581,7 @@ export class LocalServerEngine implements Engine {
       supportsTools: row.supportsTools,
       input: row.supportsVision ? ["text", "image"] : ["text"],
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-      contextWindow: row.contextWindow,
+      contextWindow,
       maxTokens: row.maxTokens,
       compat: {
         supportsStore: false,

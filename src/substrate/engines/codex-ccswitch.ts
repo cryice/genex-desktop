@@ -559,7 +559,9 @@ export function ccswitchProviderArgs(provider: CcswitchProvider): string[] {
     "-c",
     `model_providers.${provider.id}.base_url=${provider.baseUrl}`,
     "-c",
-    `model_providers.${provider.id}.wire_api=${provider.wireApi}`,
+    // Codex relays expose the Responses contract. A stale cc-switch `chat` value would make
+    // the CLI call /v1/chat/completions, which these providers reject with a 500.
+    "model_providers." + provider.id + ".wire_api=responses",
     "-c",
     `model_providers.${provider.id}.env_key=${PROVIDER_KEY_ENV}`,
     "-c",

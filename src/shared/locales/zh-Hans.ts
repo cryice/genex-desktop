@@ -852,6 +852,7 @@ export default {
   "Context settings could not be read. Repair or restore the host settings file before applying a custom threshold.":
     "无法读取上下文设置。请先修复或恢复设置文件，再应用自定义阈值。",
   "Context size not reported": "未报告上下文大小",
+  "Context size not reported; using a {tokens} token default": "服务端未报告上下文大小；使用 {tokens} token 默认值",
   "Context used": "已用上下文",
   "Context window": "上下文窗口",
   "Context · {percent}% used": "上下文 · 已用 {percent}%",
