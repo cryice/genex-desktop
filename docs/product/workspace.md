@@ -6,7 +6,7 @@ The sidebar holds Search, Notifications, Send feedback
 ([data](../../PRIVACY.md#send-feedback)), the Play/Create switch, New game, Plugins,
 Items ([Browse, Selling](../play.md#the-item-store)), Harness, Settings, Games, Friends and, once they wait, **Genex terms updated**,
 **plugin updates** and **Relaunch to update** (Linux: **Download**). Pinned games lead, then recent activity. Every launch
-opens **home** (also the wordmark): one composer over an optional picture. A game opens its
+opens **home**: one composer over an optional picture. A game opens its
 conversation beside the stage (Live, Builds once planned, Assets), Harness its conversation
 and Activity; Plugins and Items fill the workspace.
 

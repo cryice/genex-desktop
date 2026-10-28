@@ -3,11 +3,7 @@
 Reference: start with the [product overview](context.md) and affected product page;
 search it for a contract or selector, never read it whole.
 
-`[data-studio-state]` shows room, active thread and project; the stage, `data-stage-view` and
-`data-selected-run` (observations, not state-restoration APIs). Selectors are desktop DOM unless the
-surface column says otherwise. Resolve one visible enabled target before input; scope
-repeated Stop/Dismiss/Close controls. Shortcuts are renderer-local, unverified while the game owns
-keyboard focus.
+`[data-studio-state]` shows room, thread and project; `data-stage-view` and `data-selected-run` (observations, not state-restoration APIs). Selectors are desktop DOM unless noted. Resolve one enabled target before input; scope repeated controls. Shortcuts are renderer-local.
 
 | Feature / purpose | Entry, prerequisite and surface | Locator / event / shortcut | Observable postcondition | Source and coverage |
 | --- | --- | --- | --- | --- |
