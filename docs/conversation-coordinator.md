@@ -224,7 +224,9 @@ chat turn; messages go to the run's lead ([live chat](#live-chat-during-a-build)
   bubble (`delivery-order.ts`). This needs a CLI that advertises `msg_lifecycle_v1` in its init
   capabilities (2.1.281 does); the input stays open until a result has answered everything read, so
   a late message is never cut off, and one taken but never started closes it after
-  `STEER_STALL_MS`, reported as not delivered. A tool that only waits ends early when a message is
+  `STEER_STALL_MS`, reported as not delivered. The brief carries a uuid too: a resumed session may
+  first answer what it had queued (a background task's notice), and that result does not close the
+  input before the brief's own turn, whose Genex tool calls answer over it. A tool that only waits ends early when a message is
   handed over (`loop/person-wrote.ts`: a worker wait, a lead's wait for a busy reviewer, a plugin
   lock wait on the host), so the session reaches its next step in seconds and may wait again.
 - **Cut at the next step and resume.** Any other session — Codex (`codex exec` closes stdin at
@@ -840,4 +842,4 @@ session's reopen of a finished run, for an explicit start over
 ([reopening a finished run](#after-the-build-the-same-session)), and never commissions a
 duplicate run.
 
-The Loop chat uses `ask_user` for necessary questions. The question panel requires **Send answer**, or focuses the composer for custom text. The selected answer remains an ordinary durable user message, and commission settings are restored from the question artifact for that reply; reference images are not duplicated in the chat context. No worker or native provider turn waits while the question is open. Routine decisions, repairs and failure reports never become answer forms. Handoff/session bookkeeping is recorded as `contractor_handoff` diagnostics rather than assistant prose.
+The Loop chat uses `ask_user` for necessary questions. The question card answers on one press of an answer button (⌘↩ presses the recommended one), and the composer takes custom text. The selected answer remains an ordinary durable user message, and commission settings are restored from the question artifact for that reply; reference images are not duplicated in the chat context. No worker or native provider turn waits while the question is open. Routine decisions, repairs and failure reports never become answer forms. Handoff/session bookkeeping is recorded as `contractor_handoff` diagnostics rather than assistant prose.

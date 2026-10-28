@@ -2,11 +2,11 @@
  * The items-store fixture (marketplace plan 10.3; screens 07–09): Create › Items over the fixture
  * store (`fixture-store.ts`, signed in with `STUDIO_FIXTURE_GENEX_ACCOUNT=1`). The fixture game is
  * the account's Snowball on Genex, as its Genex publish record says, so Browse's Add to and Selling's
- * New item reach its chat. That chat holds the ask, the agent's reply and the Listing draft card for
+ * Ask the agent reach its chat. That chat holds the ask, the agent's reply and the Listing draft card for
  * Frost Axe, the account's draft in the fixture store, recorded as Studio records a real
  * `genex shop add --json` result. A second game, Claude of Duty, is not on Genex yet: its chat holds
  * the local draft Ice Shield (`.genex/items/` in its folder, recorded as Studio records a local
- * `shop add`), whose card offers "Sell when published". Once its publish record names the account's
+ * `shop add`), which goes on sale with the game's publish. Once its publish record names the account's
  * Claude of Duty, the fixture's own sync (`fixtureLocalRuns`) uploads it to the fixture store as
  * the CLI's `shop sync` would. Data only: nothing reaches genex.games or runs the CLI.
  */
@@ -17,7 +17,7 @@ import { CustomEvent, customEventData } from "../../shared/custom-events.ts";
 import { EventKind } from "../../shared/event-log.ts";
 import { GENEX_PLUGIN_ID } from "../../shared/genex.ts";
 import { type ListingDraft, LOCAL_DRAFT_STATE, type LocalListingDraft } from "../../shared/item-draft.ts";
-import { isItemId, ItemState, ItemType, storeRefusalOf } from "../../shared/store-items.ts";
+import { isItemId, ItemState, ItemType, storeRefusalOf, unwordedRefusalCode } from "../../shared/store-items.ts";
 import type { LocalDraftChange } from "../core/genex-cli.ts";
 import type { SyncedItem } from "../core/item-draft.ts";
 import { LOCAL_ITEMS_DIR, localDraftFingerprint, removeSyncedDrafts } from "../core/local-item-files.ts";
@@ -150,8 +150,9 @@ async function uploadDraft(deps: FixtureLocalDeps, hostedId: string, draft: Loca
   });
   const body = isRecord(answer.body) ? answer.body : {};
   if (answer.status === 200 && isItemId(body.id))
-    return { localId, contentHash, skuId: body.id, refusal: null, field: null };
-  return { localId, contentHash, skuId: null, refusal: storeRefusalOf(body.error), field: null };
+    return { localId, contentHash, skuId: body.id, refusal: null, field: null, code: null };
+  const refusal = storeRefusalOf(body.error);
+  return { localId, contentHash, skuId: null, refusal, field: null, code: unwordedRefusalCode(body.error) };
 }
 
 /**
