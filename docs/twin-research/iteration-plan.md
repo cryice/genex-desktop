@@ -22,7 +22,7 @@
 
 ## 已知发布前工作
 
-- 完整仓库 TypeScript 检查仍受上游 provider/sandbox 类型错误影响，需要单独清理。
+- 完整仓库 TypeScript 检查已通过；此前由未接入的 provider 残留文件和不匹配测试造成的错误已清理。
 - Unreal 当前输出是可审查的 OpenUSD 导入描述和 manifest，生产环境仍需在安装 Unreal 的机器上完成导入验证。
 - 本机 Blender 5.2.1 LTS 已验证：仓库 USD→GLB 作业成功导入临时 USD 并导出 1,540 字节 GLB；清空场景后重新导入该 GLB，得到 1 个名为 `test-building` 的网格和 24 个顶点。本次验证也修复了 `-noaudio` 参数拼写和 Blender 脚本目录导入路径。
 - Godot 与 Babylon 导出都将 Twin IR 中的建筑轮廓和 IoT 数据写入各自目录的 `TwinManifest.json`，不再依赖 assemble 阶段产物；Godot 从 `res://` 读取，Babylon 从同目录 fetch。两者仍需各自引擎/浏览器环境做最终运行验证。
@@ -34,3 +34,4 @@
 - Babylon.js 使用 CDN 运行时，离线交付需要在项目资产中固定 Babylon.js 版本并记录许可证。
 - 迭代 12 修掉的两处真实缺陷：`register-data-source` 登记的五类数据源此前不会进入 `ir.json`（`gen-ir` 只读 program 自带的 `dataSources`），渲染 manifest 此前按 `object.id === outline.id` 匹配对象与建筑轮廓，而两者是独立命名空间（轮廓 `B_0001`、对象 `O_0001`），导致所有建筑在 Babylon / Godot / Unreal manifest 中丢失。
 - 迭代 13：合入 104 个上游提交后，`src/substrate/engines/codex-ccswitch.ts` 确认从未接入引擎注册表——`src/` 中无任何导入者，唯一引用者是它自己的测试；且它依赖的 `CcswitchInfo` 与 `CCSWITCH_WORDS` 已在上游消失，正是 baseline 类型错误的来源之一。已连同其测试一并删除。`shared/codex-connection.ts` 保留（面板与 harness 类型契约仍在使用）。
+- 发布前清理：上游已提供 `local-server` 的 NewAPI 兼容网关接入并通过连接、发现和流式完成测试；删除未注册、无法编译的 DeepSeek/InLink 孤儿引擎及其测试，移除没有对应实现的会话 vision/output budget 测试和 Windows CLI 残留断言，恢复全仓库类型检查为绿色。
