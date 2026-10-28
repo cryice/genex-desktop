@@ -991,6 +991,26 @@
         "twin-city",
         "twin-workshop"
       ]
+    },
+    {
+      "name": "twin-modeling",
+      "summary": "Modeling backends for Twin IR: OpenUSD for layered georeferenced composition and Blender for procedural geometry and GLB export; geometry is deterministic and never edited as the source of truth.",
+      "file": "skills/twin-modeling.md",
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
+    },
+    {
+      "name": "twin-renderers",
+      "summary": "Renderer targets that consume the same Twin IR and manifest: Babylon.js for the browser preview and data app, Godot for the lightweight cross-platform runtime, Unreal for high-fidelity simulation.",
+      "file": "skills/twin-renderers.md",
+      "facts": [
+        "twin-park",
+        "twin-city",
+        "twin-workshop"
+      ]
     }
   ],
   "hooks": [

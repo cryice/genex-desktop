@@ -12,6 +12,7 @@
 | 8 | Babylon 和 Godot 语义对象预览 | 生成的 Babylon HTML 与 Godot GDScript |
 | 9 | IoT 测点、告警、命令和审计约束 | Twin IR telemetry/alarms/commands、`twin-operations.md` |
 | 10 | 标准资料、验证记录和交付清单 | `source-index.md`、`delivery-checklist.md` |
+| 11 | 一级 Twin 工作区 Tab 与插件清单同步 | `src/renderer/plugins/twin-park/TwinRoom.tsx`、`use-shell-chrome.ts` 的 `useTwinRoom`、`Sidebar.tsx` 的 Twin 行、`plugin.json` 补齐 `twin-modeling` / `twin-renderers` |
 
 ## 迭代验收规则
 

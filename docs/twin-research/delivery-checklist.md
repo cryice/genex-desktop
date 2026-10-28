@@ -26,7 +26,7 @@
 ## Verification
 
 - Biome checks pass for changed TypeScript files.
-- Manifest parses with Node and declares 16 tools, 21 skills and one project panel.
+- Manifest parses with Node and declares 16 tools, 23 skills and one project panel.
 - China standards mapping skill covers BIM/CIM, surveying, smart-city and security references without copying protected standard text.
 - `validate-data-sources` applies metadata gates before renderer export and records `ready` or `needs-metadata` status per source.
 - Ten iterations are recorded in [`iteration-plan.md`](./iteration-plan.md), including evidence and release follow-ups.
