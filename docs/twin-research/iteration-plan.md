@@ -13,6 +13,7 @@
 | 9 | IoT 测点、告警、命令和审计约束 | Twin IR telemetry/alarms/commands、`twin-operations.md` |
 | 10 | 标准资料、验证记录和交付清单 | `source-index.md`、`delivery-checklist.md` |
 | 11 | 一级 Twin 工作区 Tab 与插件清单同步 | `src/renderer/plugins/twin-park/TwinRoom.tsx`、`use-shell-chrome.ts` 的 `useTwinRoom`、`Sidebar.tsx` 的 Twin 行、`plugin.json` 补齐 `twin-modeling` / `twin-renderers` |
+| 12 | 注册数据源进入 IR 与对象—轮廓显式关联 | `mergeIrDataSources`、`IrObject.outlineId`、`rendererSceneManifest` 按 `outlineId` 匹配、`SidebarTop` 解构 `twinOpen` / `onTwin`；`tests/conformance/twin-data-sources.test.ts` |
 
 ## 迭代验收规则
 
@@ -30,3 +31,4 @@
 - Unreal README 现区分 Genex 集成描述与 Unreal 原生可导入文件，并给出 USD Stage 工作流和稳定 prim ID 约定；仍需 Unreal 实机导入验证。
 - Godot 尚未安装，仍需在具备 Godot 4 的环境中启动导出工程进行运行验证。
 - Babylon.js 使用 CDN 运行时，离线交付需要在项目资产中固定 Babylon.js 版本并记录许可证。
+- 迭代 12 修掉的两处真实缺陷：`register-data-source` 登记的五类数据源此前不会进入 `ir.json`（`gen-ir` 只读 program 自带的 `dataSources`），渲染 manifest 此前按 `object.id === outline.id` 匹配对象与建筑轮廓，而两者是独立命名空间（轮廓 `B_0001`、对象 `O_0001`），导致所有建筑在 Babylon / Godot / Unreal manifest 中丢失。

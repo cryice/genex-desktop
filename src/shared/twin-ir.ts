@@ -156,6 +156,9 @@ export interface IrObject {
   seed: number;
   styleVersion: string;
   operatorVersion: string;
+  /** The master-plan building outline this object is built from, when the object names one. The
+   *  plan's outline ids and the objects' ids are separate vocabularies, so the link is explicit. */
+  outlineId?: string;
 }
 
 /** Whether an object landed whole, degraded to a rule baseline, or has not run yet. */

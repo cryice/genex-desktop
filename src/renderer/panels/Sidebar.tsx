@@ -411,6 +411,8 @@ function SidebarTop({
   onPlugins,
   itemsOpen,
   onItems,
+  twinOpen,
+  onTwin,
   stagedCount,
   onNewGame,
   onSelectThread,

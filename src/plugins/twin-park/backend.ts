@@ -705,12 +705,18 @@ function normalizeObject(entry: unknown, index: number, styleVersion: string, op
     seed: typeof object.seed === "number" ? object.seed : seedOf(id),
     styleVersion: String(object.styleVersion ?? styleVersion),
     operatorVersion: String(object.operatorVersion ?? operatorVersion),
+    ...(typeof object.outlineId === "string" && object.outlineId ? { outlineId: object.outlineId } : {}),
   };
 }
 
 /** J3 — every scene object, with a default kind from its element and an operator version. */
 function normalizeObjects(raw: unknown, styleVersion: string, operatorVersion: string): IrObject[] {
   return asArray(raw).map((entry, index) => normalizeObject(entry, index, styleVersion, operatorVersion));
+}
+
+/** The plan outline an object is drawn from: its explicit link, or its own id for the legacy shape. */
+function outlineIdOf(object: IrObject): string {
+  return object.outlineId ?? object.id;
 }
 
 /** Normalize external engineering inputs while preserving their validation state and provenance. */
@@ -732,6 +738,18 @@ function normalizeDataSources(raw: unknown): IrDataSource[] {
       } satisfies IrDataSource,
     ];
   });
+}
+
+/**
+ * The IR's data sources: the program's own, plus every source already registered in the project's
+ * `data-sources.json`. Without this the registered GIS/BIM/CAD/point-cloud/IoT inputs never reach
+ * the IR, so operators and exports cannot see or gate on them. Later entries win on id collisions.
+ */
+export function mergeIrDataSources(programSources: readonly IrDataSource[], registered: unknown): IrDataSource[] {
+  const byId = new Map<string, IrDataSource>();
+  for (const source of programSources) byId.set(source.id, source);
+  for (const source of normalizeDataSources(registered)) byId.set(source.id, source);
+  return [...byId.values()];
 }
 
 /** The Earth anchor, preferring an explicit environment origin, then the project's georef, then zero. */
@@ -800,7 +818,11 @@ async function genIr(args: ToolArgs, ctx: PluginContext) {
     brief.zones.map((zone) => zone.id),
   );
   const objects = normalizeObjects(raw.objects, STYLE_VERSION, OPERATOR_VERSION);
-  const dataSources = normalizeDataSources(raw.dataSources);
+  const registered = await readJson(ctx, "data-sources.json");
+  const dataSources = mergeIrDataSources(
+    normalizeDataSources(raw.dataSources),
+    registered && typeof registered === "object" ? (registered as { sources?: unknown }).sources : null,
+  );
   const environment = buildEnvironment(park?.georef, asObject(raw.environment));
   const program: IrProgram = {
     version: 1,
@@ -966,10 +988,10 @@ async function configureIotFeed(args: ToolArgs, ctx: PluginContext) {
   return { ok: true, kind: feed.kind, topic, configured: true, sourceId: source.id };
 }
 
-/** Build the renderer-facing scene and operations data without changing canonical Twin IR. */
-function rendererSceneManifest(ir: IrProgram, feed?: ParkFile["feed"]) {
+/** The engine-neutral scene manifest a renderer adapter reads: objects, sources and operations. */
+export function rendererSceneManifest(ir: IrProgram, feed?: ParkFile["feed"]) {
   const objects = ir.masterPlan.buildingOutlines
-    .filter((outline) => ir.objects.some((object) => object.id === outline.id))
+    .filter((outline) => ir.objects.some((object) => outlineIdOf(object) === outline.id))
     .map((outline) => ({
       id: outline.id,
       worldOutline: outline.ring,
