@@ -14,6 +14,7 @@
 | 10 | 标准资料、验证记录和交付清单 | `source-index.md`、`delivery-checklist.md` |
 | 11 | 一级 Twin 工作区 Tab 与插件清单同步 | `src/renderer/plugins/twin-park/TwinRoom.tsx`、`use-shell-chrome.ts` 的 `useTwinRoom`、`Sidebar.tsx` 的 Twin 行、`plugin.json` 补齐 `twin-modeling` / `twin-renderers` |
 | 12 | 注册数据源进入 IR 与对象—轮廓显式关联 | `mergeIrDataSources`、`IrObject.outlineId`、`rendererSceneManifest` 按 `outlineId` 匹配、`SidebarTop` 解构 `twinOpen` / `onTwin`；`tests/conformance/twin-data-sources.test.ts` |
+| 13 | 合并上游 dev 并清理废弃的 cc-switch 集成层 | 合入 104 个上游提交；解决 `App.tsx`（`PlayPages` 包 `Suspense`）与 `Sidebar.tsx`（抽取 `SidebarTitlebar`、导航走 `counted(onNav)`）冲突；删除死代码 `codex-ccswitch.ts` 与 `codex-connection.ts` 及其测试 |
 
 ## 迭代验收规则
 
@@ -32,3 +33,4 @@
 - Godot 尚未安装，仍需在具备 Godot 4 的环境中启动导出工程进行运行验证。
 - Babylon.js 使用 CDN 运行时，离线交付需要在项目资产中固定 Babylon.js 版本并记录许可证。
 - 迭代 12 修掉的两处真实缺陷：`register-data-source` 登记的五类数据源此前不会进入 `ir.json`（`gen-ir` 只读 program 自带的 `dataSources`），渲染 manifest 此前按 `object.id === outline.id` 匹配对象与建筑轮廓，而两者是独立命名空间（轮廓 `B_0001`、对象 `O_0001`），导致所有建筑在 Babylon / Godot / Unreal manifest 中丢失。
+- 迭代 13：合入 104 个上游提交后，`src/substrate/engines/codex-ccswitch.ts` 确认从未接入引擎注册表——`src/` 中无任何导入者，唯一引用者是它自己的测试；且它依赖的 `CcswitchInfo` 与 `CCSWITCH_WORDS` 已在上游消失，正是 baseline 类型错误的来源之一。已连同其测试一并删除。`shared/codex-connection.ts` 保留（面板与 harness 类型契约仍在使用）。
